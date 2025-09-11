@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root {
+  color-scheme: light;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+.hero-gradient { 
+  background: linear-gradient(135deg, #16A34A 0%, #22C55E 100%); 
+}
+
+.card-shadow { 
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); 
+}
+
+.sticky-bottom { 
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; 
+}
+
+.rating-stars { color: #F59E0B; }
+
+.badge { 
+  display: inline-flex; align-items: center; 
+  padding: 4px 12px; border-radius: 12px; 
+  font-size: 12px; font-weight: 500; 
+}
+.badge-success { background: #DCFCE7; color: #166534; }
+.badge-warning { background: #FEF3C7; color: #92400E; }
+
+.stepper-active { background: #16A34A; color: white; }
+.stepper-completed { background: #10B981; color: white; }
+.stepper-inactive { background: #F1F5F9; color: #64748B; }
