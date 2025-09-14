@@ -1,18 +1,70 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 
 export default function AccountPage() {
+  const router = useRouter();
   const [tab, setTab] = useState("profile");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const auth = localStorage.getItem("mg_auth");
+    if (!auth) {
+      router.push("/login"); // Redirect nếu chưa login
+    }
+  }, [router]);
 
   const navItem = (id, label) => (
     <button
-      onClick={()=>setTab(id)}
-      className={`block w-full text-left px-4 py-2 rounded-xl ${tab===id ? "bg-primary text-white" : "text-neutral-700 hover:bg-neutral-100"}`}
+      onClick={() => setTab(id)}
+      className={`block w-full text-left px-4 py-2 rounded-xl ${tab === id ? "bg-primary text-white" : "text-neutral-700 hover:bg-neutral-100"}`}
     >
       {label}
     </button>
   );
+
+  const handleLogout = async () => {
+    setLoading(true);
+    setError(null);
+
+    const userId = localStorage.getItem("userId");
+    const accessToken = localStorage.getItem("token");
+
+    if (!userId || !accessToken) {
+      setError("Không tìm thấy thông tin đăng nhập.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:8080/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId,
+          accessToken,
+        }),
+      });
+
+      if (response.ok) {
+        // Backend set INACTIVE và invalidate session
+        localStorage.clear();
+        window.dispatchEvent(new Event("mg-auth-changed"));
+        router.push("/login"); // Redirect về login sau logout
+      } else {
+        const data = await response.json();
+        setError(data.message || "Đăng xuất thất bại.");
+      }
+    } catch (err) {
+      setError("Lỗi kết nối server. Vui lòng thử lại sau.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -34,6 +86,21 @@ export default function AccountPage() {
               {navItem("favorites", "Yêu thích")}
               {navItem("payment", "Thanh toán")}
             </nav>
+            {/* Logout button */}
+            <div className="mt-6">
+              {error && (
+                <div className="bg-red-50 text-red-700 p-4 rounded-xl text-sm mb-4">
+                  {error}
+                </div>
+              )}
+              <button
+                onClick={handleLogout}
+                disabled={loading}
+                className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-70 text-white py-3 px-4 rounded-xl font-semibold text-lg transition-colors"
+              >
+                {loading ? "Đang đăng xuất..." : "Đăng xuất"}
+              </button>
+            </div>
           </div>
         </div>
 
