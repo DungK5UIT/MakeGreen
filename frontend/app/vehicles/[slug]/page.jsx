@@ -1,12 +1,40 @@
-import { vehicles } from "@/data/vehicles";
+// app/vehicles/[slug]/page.js
+'use client';
+
+import { useEffect, useState } from 'react';
+import {supabase} from '../../../lib/supabase'
 import Link from "next/link";
 
-export function generateStaticParams() {
-  return vehicles.map(v => ({ slug: v.slug }));
-}
-
 export default function VehicleDetail({ params }) {
-  const vehicle = vehicles.find(v => v.slug === params.slug);
+  const [vehicle, setVehicle] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchVehicle = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('v_fe_vehicle_cards')
+          .select('*')
+          .eq('slug', params.slug)
+          .single();
+
+        if (error) throw error;
+        setVehicle(data);
+      } catch (err) {
+        setError(err.message);
+        console.error('Lỗi fetch xe chi tiết:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVehicle();
+  }, [params.slug]);
+
+  if (loading) return <div className="text-center py-12">Đang tải...</div>;
+  if (error) return <div className="text-center py-12 text-red-500">Lỗi: {error}</div>;
   if (!vehicle) return <div className="max-w-7xl mx-auto px-4 py-12">Không tìm thấy xe.</div>;
 
   return (
@@ -48,20 +76,20 @@ export default function VehicleDetail({ params }) {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span>Theo giờ (tối thiểu 4h)</span>
-                <span className="font-semibold">{(vehicle.price/6).toLocaleString("vi-VN")}đ/giờ</span>
+                <span className="font-semibold">{(vehicle.price / 6)?.toLocaleString("vi-VN") || '0'}đ/giờ</span>
               </div>
               <div className="flex justify-between">
                 <span>Theo ngày (24h)</span>
-                <span className="font-semibold text-primary">{vehicle.price.toLocaleString("vi-VN")}đ/ngày</span>
+                <span className="font-semibold text-primary">{vehicle.price?.toLocaleString("vi-VN") || '0'}đ/ngày</span>
               </div>
               <div className="flex justify-between">
                 <span>Theo tuần (7 ngày)</span>
-                <span className="font-semibold">{(vehicle.price*6).toLocaleString("vi-VN")}đ/tuần</span>
+                <span className="font-semibold">{(vehicle.price * 6)?.toLocaleString("vi-VN") || '0'}đ/tuần</span>
               </div>
               <hr className="my-3" />
               <div className="flex justify-between text-lg">
                 <span>Phí cọc</span>
-                <span className="font-semibold">{vehicle.deposit.toLocaleString("vi-VN")}đ</span>
+                <span className="font-semibold">{vehicle.deposit?.toLocaleString("vi-VN") || '0'}đ</span>
               </div>
             </div>
           </div>
@@ -74,7 +102,7 @@ export default function VehicleDetail({ params }) {
               <div><span className="text-neutral-600">Tầm hoạt động:</span><span className="font-medium ml-2">{vehicle.range}km</span></div>
               <div><span className="text-neutral-600">Tốc độ tối đa:</span><span className="font-medium ml-2">{vehicle.topSpeed}km/h</span></div>
               <div><span className="text-neutral-600">Thời gian sạc:</span><span className="font-medium ml-2">{vehicle.chargeTime}</span></div>
-              <div><span className="text-neutral-600">Trọng lượng:</span><span className="font-medium ml-2">{vehicle.weight}</span></div>
+              <div><span className="text-neutral-600">Trọng lượng:</span><span className="font-medium ml-2">{vehicle.weight || 'Chưa có'}</span></div>
             </div>
           </div>
 

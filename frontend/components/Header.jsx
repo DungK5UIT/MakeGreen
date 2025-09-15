@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import Image from 'next/image';
 
 const NavLink = ({ href, children, onClick }) => {
   const pathname = usePathname();
@@ -60,11 +61,12 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <Link href="/" className="flex items-center" aria-label="MakeGreen - về trang chủ">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center mr-3">
-              <svg className="w-5 h-5 text-white" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
-              </svg>
-            </div>
+      <Image
+        src="/images/Logo.png"
+        alt="Logo"
+        width={70}
+        height={70}
+      />
             <span className="text-xl font-semibold text-neutral-900">MakeGreen</span>
           </Link>
 
@@ -79,7 +81,7 @@ export default function Header() {
               <>
                 <NavLink href="/login">Đăng nhập</NavLink>
                 <Link
-                  href="/booking"
+                  href="/vehicles"
                   className="bg-primary hover:bg-primary-hover text-white px-6 py-2 rounded-xl font-medium transition-colors"
                 >
                   Đặt xe ngay
@@ -89,7 +91,7 @@ export default function Header() {
               <>
                 <NavLink href="/account">Tài khoản</NavLink>
                 <Link
-                  href="/booking"
+                  href="/vehicles"
                   className="bg-primary hover:bg-primary-hover text-white px-6 py-2 rounded-xl font-medium transition-colors"
                 >
                   Đặt xe ngay
@@ -133,7 +135,7 @@ export default function Header() {
                     Đăng nhập
                   </Link>
                   <Link
-                    href="/booking"
+                    href="/vehicles"
                     className="flex-1 text-center bg-primary text-white rounded-xl py-2"
                     onClick={() => setOpen(false)}
                   >
@@ -150,7 +152,7 @@ export default function Header() {
                     Tài khoản
                   </Link>
                   <Link
-                    href="/booking"
+                    href="/vehicles"
                     className="flex-1 text-center bg-primary text-white rounded-xl py-2"
                     onClick={() => setOpen(false)}
                   >

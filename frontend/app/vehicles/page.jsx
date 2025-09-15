@@ -1,7 +1,39 @@
-import VehicleCard from "@/components/VehicleCard";
-import { vehicles } from "@/data/vehicles";
+// app/vehicles/page.js
+'use client';
+
+import { useEffect, useState } from 'react';
+import {supabase} from '../../lib/supabase'
+import VehicleCard from '@/components/VehicleCard';
 
 export default function VehiclesPage() {
+  const [vehicles, setVehicles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchVehicles = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('v_fe_vehicle_cards')
+          .select('*');
+
+        if (error) throw error;
+        setVehicles(data || []);
+      } catch (err) {
+        setError(err.message);
+        console.error('Lỗi fetch xe:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVehicles();
+  }, []);
+
+  if (loading) return <div className="text-center py-12">Đang tải...</div>;
+  if (error) return <div className="text-center py-12 text-red-500">Lỗi: {error}</div>;
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Search & Filter (static demo) */}

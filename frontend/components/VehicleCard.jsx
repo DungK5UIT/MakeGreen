@@ -1,6 +1,12 @@
+// components/VehicleCard.js
+'use client';
+
 import Link from "next/link";
 
 export default function VehicleCard({ vehicle }) {
+  // Xử lý trường hợp dữ liệu chưa có
+  if (!vehicle) return null;
+
   return (
     <div className="bg-white rounded-2xl card-shadow overflow-hidden">
       <div className="h-48 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
@@ -22,15 +28,18 @@ export default function VehicleCard({ vehicle }) {
           <span className="badge badge-success">{vehicle.topSpeed}km/h</span>
         </div>
         <div className="text-sm text-neutral-600 mb-4">
-          <p>📍 {vehicle.locations.join(", ")}</p>
-          <p>💰 Cọc: {vehicle.deposit.toLocaleString("vi-VN")}đ</p>
+          <p>📍 {vehicle.locations?.join(", ") || "Chưa có vị trí"}</p>
+          <p>💰 Cọc: {(vehicle.deposit || 0).toLocaleString("vi-VN")}đ</p>
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-2xl font-bold text-primary">{vehicle.price.toLocaleString("vi-VN")}đ</span>
+            <span className="text-2xl font-bold text-primary">{(vehicle.price || 0).toLocaleString("vi-VN")}đ</span>
             <span className="text-neutral-600">/ngày</span>
           </div>
-          <Link href={`/vehicles/${vehicle.slug}`} className="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-xl font-medium transition-colors">
+          <Link 
+            href={`/vehicles/${vehicle.slug}`} 
+            className="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-xl font-medium transition-colors"
+          >
             Xem chi tiết
           </Link>
         </div>

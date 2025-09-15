@@ -1,6 +1,64 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import Link from "next/link";
+import VehicleCard from '@/components/VehicleCard';
 
 export default function HomePage() {
+  const [featuredVehicles, setFeaturedVehicles] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Lấy 3 xe nổi bật
+        const { data: vehiclesData, error: vehiclesError } = await supabase
+          .from('v_fe_vehicle_cards')
+          .select('*')
+          .limit(3);
+        
+        // Lấy đánh giá (3 review mới nhất)
+        const { data: reviewsData, error: reviewsError } = await supabase
+          .from('danh_gia')
+          .select(`
+            so_sao,
+            binh_luan,
+            nguoi_dung:nguoi_dung!inner(ho_ten)
+          `)
+          .order('tao_luc', { ascending: false })
+          .limit(3);
+
+        if (vehiclesError) throw vehiclesError;
+        if (reviewsError) throw reviewsError;
+
+        setFeaturedVehicles(vehiclesData || []);
+        setReviews(reviewsData || []);
+      } catch (err) {
+        setError(err.message);
+        console.error('Lỗi fetch dữ liệu:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (loading) return (
+    <div className="text-center py-20">
+      <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+    </div>
+  );
+  
+  if (error) return (
+    <div className="text-center py-20 text-red-500">Lỗi: {error}</div>
+  );
+
   return (
     <div id="home">
       {/* Hero */}
@@ -20,19 +78,20 @@ export default function HomePage() {
                 Đặt xe ngay
               </Link>
             </div>
-            <div className="text-center">
-              <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8">
-                <svg className="w-64 h-64 mx-auto text-white/80" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              </div>
-            </div>
+          <div className="text-center">
+  <div className="bg-white/10 backdrop-blur-sm rounded-3xl">
+    <img 
+      src="/images/xe.jpg" 
+      alt="Xe Image" 
+      className="w-120 h-120 mx-auto object-cover"
+    />
+  </div>
+</div>
           </div>
         </div>
       </section>
 
-      {/* Benefits */}
+      {/* Benefits (giữ nguyên static) */}
       <section className="py-20 bg-neutral-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -61,7 +120,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Featured */}
+      {/* Featured - ĐÃ SỬA: Lấy dữ liệu từ Supabase */}
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -70,36 +129,8 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {["VinFast Klara S", "Pega NewTech", "Yadea G5"].map((name, i) => (
-              <div key={name} className="bg-white rounded-2xl card-shadow overflow-hidden">
-                <div className={`h-48 bg-gradient-to-br from-${i===0?"primary":"secondary"}/20 to-${i===2?"primary":"secondary"}/20 flex items-center justify-center`}>
-                  <svg className={`w-24 h-24 ${i===1?"text-secondary": i===2?"text-success":"text-primary"}`} fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
-                  </svg>
-                </div>
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-xl font-semibold">{name}</h3>
-                    <div className="flex items-center">
-                      <span className="rating-stars">★★★★★</span>
-                      <span className="text-sm text-neutral-600 ml-1">{(4.5 + i*0.2).toFixed(1)}</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    <span className="badge badge-success">{[120,80,100][i]}km tầm hoạt động</span>
-                    <span className={`badge ${i===1?"badge-warning":"badge-success"}`}>{i===1?"Pin cố định":"Pin đổi được"}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-2xl font-bold text-primary">{[150000,120000,140000][i].toLocaleString("vi-VN")}đ</span>
-                      <span className="text-neutral-600">/ngày</span>
-                    </div>
-                    <Link href={`/vehicles/${["klara-s","pega-newtech","yadea-g5"][i]}`} className="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-xl font-medium transition-colors">
-                      Xem chi tiết
-                    </Link>
-                  </div>
-                </div>
-              </div>
+            {featuredVehicles.map(vehicle => (
+              <VehicleCard key={vehicle.slug} vehicle={vehicle} />
             ))}
           </div>
 
@@ -111,7 +142,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Process */}
+      {/* Process (giữ nguyên static) */}
       <section className="py-20 bg-neutral-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -131,7 +162,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Reviews */}
+      {/* Reviews - ĐÃ SỬA: Lấy dữ liệu từ Supabase */}
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -140,22 +171,28 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            {[
-              { initials: "AN", name: "Anh Nguyễn", rating: "★★★★★", text: "Xe điện MakeGreen rất tiện lợi, pin trâu và giá cả hợp lý. Đặc biệt thích dịch vụ giao xe tận nơi."},
-              { initials: "LH", name: "Linh Hoàng", rating: "★★★★★", text: "App đặt xe rất dễ sử dụng, eKYC nhanh chóng. Xe luôn sạch sẽ và được bảo dưỡng tốt."},
-              { initials: "MT", name: "Minh Tuấn", rating: "★★★★☆", text: "Dịch vụ tốt, hỗ trợ khách hàng nhiệt tình. Sẽ tiếp tục sử dụng cho các chuyến đi sau."}
-            ].map((r)=> (
-              <div key={r.name} className="bg-white p-8 rounded-2xl card-shadow">
-                <div className="flex items-center mb-4">
-                  <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white font-semibold mr-4">{r.initials}</div>
-                  <div>
-                    <h4 className="font-semibold">{r.name}</h4>
-                    <div className="rating-stars">{r.rating}</div>
+            {reviews.map((review, i) => {
+              const initials = review.nguoi_dung.ho_ten
+                ? review.nguoi_dung.ho_ten.split(' ').map(n => n[0]).join('').slice(0, 2)
+                : 'ND';
+              
+              return (
+                <div key={i} className="bg-white p-8 rounded-2xl card-shadow">
+                  <div className="flex items-center mb-4">
+                    <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white font-semibold mr-4">
+                      {initials}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold">{review.nguoi_dung.ho_ten || 'Người dùng'}</h4>
+                      <div className="rating-stars">
+                        {"★★★★★".slice(0, Math.round(review.so_sao))}
+                      </div>
+                    </div>
                   </div>
+                  <p className="text-neutral-600">"{review.binh_luan}"</p>
                 </div>
-                <p className="text-neutral-600">"{r.text}"</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>

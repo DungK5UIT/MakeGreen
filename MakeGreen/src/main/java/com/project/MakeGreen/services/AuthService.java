@@ -74,7 +74,6 @@ public class AuthService {
                 NguoiDung newUser = new NguoiDung();
                 newUser.setId(UUID.fromString(tokens.getUserId()));
                 newUser.setEmail(tokens.getEmail());
-                newUser.setSdt(req.getPhone());
                 newUser.setHoTen(req.getFullName());
                 newUser.setTrang_thai("ACTIVE");
                 newUser.setDa_xac_minh_email(false);
