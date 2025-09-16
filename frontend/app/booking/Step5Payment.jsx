@@ -1,11 +1,17 @@
-// app/booking/Step5Payment.jsx
 import React from 'react';
 
-const Step5Payment = () => {
+const Step5Payment = ({ vehicle, pickupDate, returnDate, selectedPayment, setSelectedPayment, total }) => {
+  const days = pickupDate && returnDate ? Math.ceil((new Date(returnDate) - new Date(pickupDate)) / (1000 * 60 * 60 * 24)) : 1;
+  const rentalPrice = vehicle?.price * days || 0;
+  const deliveryFee = 50000;
+  const insurance = 100000;
+  const deposit = total * 0.5;
+
+  console.log('Step5Payment - Total:', total.toLocaleString('vi-VN'), 'Deposit (50%):', deposit.toLocaleString('vi-VN')); // Debug log
+
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Thanh toán</h2>
-      
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <div className="space-y-6">
@@ -13,7 +19,7 @@ const Step5Payment = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Chọn phương thức thanh toán</h3>
               <div className="space-y-3">
                 <label className="flex items-center p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-primary transition-colors">
-                  <input type="radio" name="payment" value="vnpay" className="w-4 h-4 text-primary border-gray-300 focus:ring-primary" />
+                  <input type="radio" name="payment" value="vnpay" className="w-4 h-4 text-primary border-gray-300 focus:ring-primary" checked={selectedPayment === 'vnpay'} onChange={(e) => setSelectedPayment(e.target.value)} />
                   <div className="ml-3 flex items-center">
                     <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
                       <span className="text-blue-600 font-bold text-sm">VNP</span>
@@ -25,7 +31,7 @@ const Step5Payment = () => {
                   </div>
                 </label>
                 <label className="flex items-center p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-primary transition-colors">
-                  <input type="radio" name="payment" value="momo" className="w-4 h-4 text-primary border-gray-300 focus:ring-primary" />
+                  <input type="radio" name="payment" value="momo" className="w-4 h-4 text-primary border-gray-300 focus:ring-primary" checked={selectedPayment === 'momo'} onChange={(e) => setSelectedPayment(e.target.value)} />
                   <div className="ml-3 flex items-center">
                     <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center mr-3">
                       <span className="text-pink-600 font-bold text-sm">M</span>
@@ -37,7 +43,7 @@ const Step5Payment = () => {
                   </div>
                 </label>
                 <label className="flex items-center p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-primary transition-colors">
-                  <input type="radio" name="payment" value="banking" className="w-4 h-4 text-primary border-gray-300 focus:ring-primary" />
+                  <input type="radio" name="payment" value="banking" className="w-4 h-4 text-primary border-gray-300 focus:ring-primary" checked={selectedPayment === 'banking'} onChange={(e) => setSelectedPayment(e.target.value)} />
                   <div className="ml-3 flex items-center">
                     <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
                       <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
@@ -52,7 +58,7 @@ const Step5Payment = () => {
                   </div>
                 </label>
                 <label className="flex items-center p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-primary transition-colors">
-                  <input type="radio" name="payment" value="cash" className="w-4 h-4 text-primary border-gray-300 focus:ring-primary" />
+                  <input type="radio" name="payment" value="cash" className="w-4 h-4 text-primary border-gray-300 focus:ring-primary" checked={selectedPayment === 'cash'} onChange={(e) => setSelectedPayment(e.target.value)} />
                   <div className="ml-3 flex items-center">
                     <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center mr-3">
                       <svg className="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
@@ -68,7 +74,6 @@ const Step5Payment = () => {
                 </label>
               </div>
             </div>
-
             <div className="p-4 bg-blue-50 rounded-xl">
               <div className="flex items-start">
                 <svg className="w-5 h-5 text-blue-600 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -86,41 +91,37 @@ const Step5Payment = () => {
             </div>
           </div>
         </div>
-
         <div className="lg:col-span-1">
           <div className="bg-gray-50 rounded-2xl p-6 sticky top-4">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Chi tiết đơn hàng</h3>
-            
             <div className="space-y-3 mb-4">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Thuê xe (2 ngày)</span>
-                <span className="font-medium">1.200.000đ</span>
+                <span className="text-gray-600">Thuê xe ({days} ngày)</span>
+                <span className="font-medium">{rentalPrice.toLocaleString("vi-VN")}đ</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Phí giao nhận</span>
-                <span className="font-medium">50.000đ</span>
+                <span className="font-medium">{deliveryFee.toLocaleString("vi-VN")}đ</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Bảo hiểm</span>
-                <span className="font-medium">100.000đ</span>
+                <span className="font-medium">{insurance.toLocaleString("vi-VN")}đ</span>
               </div>
               <div className="border-t pt-3">
                 <div className="flex justify-between">
                   <span className="font-semibold text-gray-900">Tổng cộng</span>
-                  <span className="font-bold text-primary text-lg">1.350.000đ</span>
+                  <span className="font-bold text-primary text-lg">{total.toLocaleString("vi-VN")}đ</span>
                 </div>
               </div>
             </div>
-
             <div className="text-sm text-gray-600 mb-4">
-              <p className="font-medium mb-2">Thanh toán ngay: <span className="text-primary">675.000đ</span></p>
-              <p>Thanh toán khi nhận xe: <span className="font-medium">675.000đ</span></p>
+              <p className="font-medium mb-2">Thanh toán ngay: <span className="text-primary">{deposit.toLocaleString("vi-VN")}đ</span></p>
+              <p>Thanh toán khi nhận xe: <span className="font-medium">{(total - deposit).toLocaleString("vi-VN")}đ</span></p>
             </div>
-
             <div className="p-3 bg-green-50 rounded-lg">
               <div className="flex items-center">
                 <svg className="w-4 h-4 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+                  <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11 .65 .166 1.32 .166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
                 </svg>
                 <span className="text-sm text-green-800 font-medium">Bảo hiểm toàn diện</span>
               </div>

@@ -17,8 +17,6 @@ public class NguoiDung {
   private String sdt;
   private String hoTen;
   private String trang_thai;
-  private Boolean da_xac_minh_email;
-  private Boolean da_xac_minh_sdt;
   private OffsetDateTime ngay_tao;
   private Boolean enabled;
   

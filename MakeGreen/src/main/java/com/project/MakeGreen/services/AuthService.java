@@ -30,8 +30,6 @@ public class AuthService {
                 newUser.setId(UUID.fromString(tokens.getUserId()));
                 newUser.setEmail(tokens.getEmail());
                 newUser.setTrang_thai("ACTIVE");
-                newUser.setDa_xac_minh_email(false);
-                newUser.setDa_xac_minh_sdt(false);
                 newUser.setEnabled(true);
                 VaiTro userRole = vaiTroRepository.findByMa("USER")
                     .orElseGet(() -> {
@@ -76,8 +74,6 @@ public class AuthService {
                 newUser.setEmail(tokens.getEmail());
                 newUser.setHoTen(req.getFullName());
                 newUser.setTrang_thai("ACTIVE");
-                newUser.setDa_xac_minh_email(false);
-                newUser.setDa_xac_minh_sdt(false);
                 newUser.setEnabled(true);
                 VaiTro userRole = vaiTroRepository.findByMa("USER")
                     .orElseGet(() -> {

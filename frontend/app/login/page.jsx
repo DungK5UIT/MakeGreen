@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { supabase } from "../../lib/supabase"; // Adjust path if necessary
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,9 +40,19 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
+        // Set Supabase session
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: data.accessToken,
+          refresh_token: data.refreshToken, // Assuming refreshToken is returned in response
+        });
+        if (sessionError) {
+          throw new Error("Lỗi thiết lập phiên đăng nhập: " + sessionError.message);
+        }
+
         // Lưu thông tin vào localStorage
         localStorage.setItem("mg_auth", "1");
         localStorage.setItem("token", data.accessToken);
+        localStorage.setItem("refreshToken", data.refreshToken); // Store refreshToken
         localStorage.setItem("userId", data.userId);
         localStorage.setItem("email", data.email);
         localStorage.setItem("roles", JSON.stringify(data.roles));
@@ -56,7 +67,7 @@ export default function LoginPage() {
         setError(data.message || "Đăng nhập thất bại. Vui lòng thử lại.");
       }
     } catch (err) {
-      setError("Lỗi kết nối server. Vui lòng thử lại sau.");
+      setError("Lỗi kết nối server hoặc thiết lập phiên: " + err.message);
     } finally {
       setLoading(false);
     }

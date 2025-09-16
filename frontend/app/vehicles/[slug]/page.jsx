@@ -106,7 +106,7 @@ export default function VehicleDetail({ params }) {
             </div>
           </div>
 
-          <Link href="/booking" className="w-full block text-center bg-primary hover:bg-primary-hover text-white py-4 rounded-2xl font-semibold text-lg transition-colors">
+          <Link href={`/booking?slug=${vehicle.slug}`} className="w-full block text-center bg-primary hover:bg-primary-hover text-white py-4 rounded-2xl font-semibold text-lg transition-colors">
             Chọn thời gian & địa điểm
           </Link>
         </div>

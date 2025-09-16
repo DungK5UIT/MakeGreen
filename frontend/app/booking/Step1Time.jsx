@@ -4,7 +4,6 @@ const Step1Time = ({ pickupDate, setPickupDate, pickupTime, setPickupTime, retur
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Chọn thời gian thuê xe</h2>
-
       <div className="grid md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Ngày nhận xe</label>
@@ -53,8 +52,6 @@ const Step1Time = ({ pickupDate, setPickupDate, pickupTime, setPickupTime, retur
           </select>
         </div>
       </div>
-
-      {/* Thông báo lỗi hoặc thông tin */}
       <div className={`mt-6 p-4 rounded-xl ${isValidDuration ? 'bg-blue-50' : 'bg-red-50'}`}>
         <div className="flex items-center">
           {isValidDuration ? (

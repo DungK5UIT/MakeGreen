@@ -26,14 +26,16 @@ public class SecurityConfiguration {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/signup", "/api/auth/refresh-token", "/api/auth/logout").permitAll()
                 .requestMatchers(HttpMethod.GET, "/actuator/health", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/pay/vnpay/initiate").permitAll()  // Cho phép public, dùng controller check auth
+                .requestMatchers(HttpMethod.GET, "/api/pay/vnpay/callback").permitAll()  // Cho phép callback từ VNPay
                 .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
                 .requestMatchers("/api/user/**").hasAnyAuthority("USER", "ADMIN")
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
-            		.jwt(jwt -> jwt
-            			    .jwkSetUri("https://normulsreewqiokyhplh.supabase.co/auth/v1/jwks")
-            			)
+                .jwt(jwt -> jwt
+                    .jwkSetUri("https://normulsreewqiokyhplh.supabase.co/auth/v1/jwks")
+                )
             )
             .cors(cors -> cors.configurationSource(corsConfigurationSource()));
         return http.build();

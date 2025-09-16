@@ -1,47 +1,33 @@
-// app/booking/Step6Confirmation.jsx
 import React from 'react';
 
-const Step6Confirmation = () => {
+const Step6Confirmation = ({ bookingId, total, status, message, router }) => {
+  console.log('Step6Confirmation - Total:', total.toLocaleString('vi-VN'), 'Status:', status, 'Message:', message); // Debug log
+
+  const depositAmount = total * 0.5; // 50% tiền cọc
+
   return (
     <div>
       <div className="text-center mb-8">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-10 h-10 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+        <div className={`w-20 h-20 ${status === 'SUCCESS' ? 'bg-green-100' : 'bg-red-100'} rounded-full flex items-center justify-center mx-auto mb-4`}>
+          <svg className={`w-10 h-10 ${status === 'SUCCESS' ? 'text-green-600' : 'text-red-600'}`} fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
           </svg>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Đặt xe thành công!</h2>
-        <p className="text-gray-600">Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">{status === 'SUCCESS' ? 'Thanh toán thành công!' : 'Thanh toán thất bại'}</h2>
+        <p className="text-gray-600">{message || 'Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi'}</p>
       </div>
-
       <div className="bg-gray-50 rounded-2xl p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin đơn hàng</h3>
-        
         <div className="grid md:grid-cols-2 gap-6">
+          {/* CỘT TRÁI */}
           <div className="space-y-3">
             <div>
               <p className="text-sm text-gray-600">Mã đơn hàng</p>
-              <p className="font-semibold text-gray-900">#BK2024001234</p>
+              <p className="font-semibold text-gray-900">#{bookingId}</p>
             </div>
-            <div>
-              <p className="text-sm text-gray-600">Thời gian thuê</p>
-              <p className="font-medium text-gray-900">15/03/2024 08:00 - 17/03/2024 18:00</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Địa điểm nhận xe</p>
-              <p className="font-medium text-gray-900">Sân bay Nội Bài</p>
-            </div>
-          </div>
-          <div className="space-y-3">
             <div>
               <p className="text-sm text-gray-600">Tổng tiền</p>
-              <p className="font-bold text-primary text-lg">1.350.000đ</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Trạng thái thanh toán</p>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                Đã thanh toán 50%
-              </span>
+              <p className="font-bold text-primary text-lg">{total.toLocaleString("vi-VN")}đ</p>
             </div>
             <div>
               <p className="text-sm text-gray-600">Trạng thái đơn hàng</p>
@@ -50,9 +36,22 @@ const Step6Confirmation = () => {
               </span>
             </div>
           </div>
+
+          {/* CỘT PHẢI — ĐÃ THÊM SỐ TIỀN THANH TOÁN NGAY DƯỚI TRẠNG THÁI THANH TOÁN */}
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm text-gray-600">Trạng thái thanh toán</p>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status === 'SUCCESS' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                {status === 'SUCCESS' ? 'Đã thanh toán' : 'Thất bại'}
+              </span>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Số tiền đã thanh toán</p>
+              <p className="font-bold text-green-600 text-lg">{depositAmount.toLocaleString("vi-VN")}đ</p>
+            </div>
+          </div>
         </div>
       </div>
-
       <div className="grid md:grid-cols-2 gap-6 mb-6">
         <div className="p-4 border border-gray-200 rounded-xl">
           <div className="flex items-center mb-3">
@@ -74,7 +73,6 @@ const Step6Confirmation = () => {
           <p className="text-sm text-gray-600">Hotline: <span className="font-medium">1900 1234</span><br />Email: support@carental.com</p>
         </div>
       </div>
-
       <div className="p-4 bg-yellow-50 rounded-xl">
         <div className="flex items-start">
           <svg className="w-5 h-5 text-yellow-600 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
