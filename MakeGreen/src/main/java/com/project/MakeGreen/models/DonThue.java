@@ -17,7 +17,7 @@ import java.util.UUID;
 @Builder
 public class DonThue {
     @Id
-    @UuidGenerator // ← XÓA HOÀN TOÀN columnDefinition = "uuid"
+    @UuidGenerator
     private UUID id;
 
     @Column(name = "nguoi_dung_id", nullable = false)
@@ -41,4 +41,12 @@ public class DonThue {
 
     @Column(name = "chi_phi_uoc_tinh")
     private BigDecimal chiPhiUocTinh;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tram_thue_id", nullable = false)
+    private Tram tramThue;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tram_tra_id", nullable = false)
+    private Tram tramTra;
 }

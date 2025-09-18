@@ -1,17 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation"; // Thêm useRouter
 import { useEffect, useState } from "react";
 import Image from 'next/image';
 
-const NavLink = ({ href, children, onClick }) => {
+const NavLink = ({ href, children, onClick, isTrips, isAuthed }) => { // Thêm props isTrips và isAuthed
   const pathname = usePathname();
+  const router = useRouter(); // Thêm router
   const active = pathname === href || pathname.startsWith(`${href}/`);
+
+  const handleClick = (e) => {
+    if (isTrips && !isAuthed) {
+      e.preventDefault(); // Ngăn navigation mặc định
+      router.push("/login"); // Redirect đến login
+    }
+    if (onClick) onClick(); // Gọi onClick nếu có (cho mobile menu)
+  };
+
   return (
     <Link
       href={href}
-      onClick={onClick}
+      onClick={handleClick}
       className={`transition-colors ${
         active ? "text-primary" : "text-neutral-600 hover:text-primary"
       }`}
@@ -61,25 +71,26 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <Link href="/" className="flex items-center" aria-label="MakeGreen - về trang chủ">
-      <Image
-        src="/images/Logo.png"
-        alt="Logo"
-        width={70}
-        height={70}
-      />
+            <Image
+              src="/images/Logo.png"
+              alt="Logo"
+              width={70}
+              height={70}
+            />
             <span className="text-xl font-semibold text-neutral-900">MakeGreen</span>
           </Link>
 
           <nav className="hidden md:flex items-center space-x-8">
-            <NavLink href="/vehicles">Xe điện</NavLink>
-            <NavLink href="/news">Tin tức</NavLink>
-            <NavLink href="/support">Hỗ trợ</NavLink>
+            <NavLink href="/vehicles" isAuthed={isAuthed}>Xe điện</NavLink>
+            <NavLink href="/trips" isTrips={true} isAuthed={isAuthed}>Chuyến đi</NavLink> {/* Thêm isTrips và isAuthed */}
+            <NavLink href="/news" isAuthed={isAuthed}>Tin tức</NavLink>
+            <NavLink href="/support" isAuthed={isAuthed}>Hỗ trợ</NavLink>
           </nav>
 
           <div className="hidden md:flex items-center space-x-4">
             {!isAuthed ? (
               <>
-                <NavLink href="/login">Đăng nhập</NavLink>
+                <NavLink href="/login" isAuthed={isAuthed}>Đăng nhập</NavLink>
                 <Link
                   href="/vehicles"
                   className="bg-primary hover:bg-primary-hover text-white px-6 py-2 rounded-xl font-medium transition-colors"
@@ -89,7 +100,7 @@ export default function Header() {
               </>
             ) : (
               <>
-                <NavLink href="/account">Tài khoản</NavLink>
+                <NavLink href="/account" isAuthed={isAuthed}>Tài khoản</NavLink>
                 <Link
                   href="/vehicles"
                   className="bg-primary hover:bg-primary-hover text-white px-6 py-2 rounded-xl font-medium transition-colors"
@@ -120,9 +131,10 @@ export default function Header() {
         {/* Mobile menu */}
         {open && (
           <div id="mobile-menu" className="md:hidden pb-4 space-y-3">
-            <NavLink href="/vehicles" onClick={() => setOpen(false)}>Xe điện</NavLink>
-            <NavLink href="/news" onClick={() => setOpen(false)}>Tin tức</NavLink>
-            <NavLink href="/support" onClick={() => setOpen(false)}>Hỗ trợ</NavLink>
+            <NavLink href="/vehicles" onClick={() => setOpen(false)} isAuthed={isAuthed}>Xe điện</NavLink>
+            <NavLink href="/trips" onClick={() => setOpen(false)} isTrips={true} isAuthed={isAuthed}>Chuyến đi</NavLink> {/* Thêm isTrips và isAuthed */}
+            <NavLink href="/news" onClick={() => setOpen(false)} isAuthed={isAuthed}>Tin tức</NavLink>
+            <NavLink href="/support" onClick={() => setOpen(false)} isAuthed={isAuthed}>Hỗ trợ</NavLink>
 
             <div className="flex gap-3 pt-1">
               {!isAuthed ? (

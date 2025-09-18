@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
+import { supabase } from "../../lib/supabase"; // Adjust path if necessary
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -11,6 +12,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState(null);
+  const [email, setEmail] = useState(""); // Lưu email cho resend
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -52,8 +54,48 @@ export default function RegisterPage() {
         // ignore parse error
       }
 
+      console.log("Signup response:", data); // Debug log
+
+      if (response.status === 429) {
+        setErrors({
+          api: "Quá nhiều yêu cầu gửi email. Vui lòng thử lại sau vài phút.",
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (response.status === 500 && data.msg?.includes("Error sending confirmation email")) {
+        setErrors({
+          api: "Lỗi gửi email xác nhận. Vui lòng kiểm tra cấu hình email hoặc thử lại sau.",
+        });
+        setLoading(false);
+        return;
+      }
+
       if (response.ok) {
-        setSuccessMessage("Đăng ký thành công! Vui lòng đăng nhập để tiếp tục.");
+        setSuccessMessage(data.message || "Đăng ký thành công! Vui lòng kiểm tra email để xác nhận tài khoản.");
+        setEmail(email); // Lưu email cho resend
+        if (data.accessToken) {
+          // Nếu có tokens (confirmation tắt), login ngay
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: data.accessToken,
+            refresh_token: data.refreshToken,
+          });
+          if (sessionError) {
+            console.error("Session error:", sessionError);
+          } else {
+            localStorage.setItem("mg_auth", "1");
+            localStorage.setItem("token", data.accessToken);
+            localStorage.setItem("refreshToken", data.refreshToken);
+            localStorage.setItem("userId", data.userId || "unknown");
+            localStorage.setItem("email", data.email);
+            localStorage.setItem("roles", JSON.stringify(data.roles || []));
+            window.dispatchEvent(new Event("mg-auth-changed"));
+            router.push("/account");
+            return;
+          }
+        }
+        // Unconfirmed: Redirect login sau 1.5s
         setTimeout(() => router.push("/login"), 1500);
       } else {
         if (response.status === 409 || response.status === 422) {
@@ -65,6 +107,30 @@ export default function RegisterPage() {
             api: data?.message || "Đăng ký thất bại. Vui lòng thử lại.",
           });
         }
+      }
+    } catch (err) {
+      console.error("Signup error:", err);
+      setErrors({ api: "Lỗi kết nối server. Vui lòng thử lại sau." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendConfirmation = async () => {
+    if (!email) return;
+    setLoading(true);
+    try {
+      const response = await fetch("http://localhost:8080/api/auth/resend-confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      console.log("Resend response:", data);
+      if (response.ok) {
+        setSuccessMessage(data.message || "Email xác nhận đã gửi lại thành công!");
+      } else {
+        setErrors({ api: data.message || "Gửi lại email thất bại." });
       }
     } catch (err) {
       setErrors({ api: "Lỗi kết nối server. Vui lòng thử lại sau." });
@@ -223,6 +289,18 @@ export default function RegisterPage() {
               </div>
             </div>
           </form>
+
+          {successMessage && (
+            <div className="mt-4 text-center">
+              <button
+                onClick={resendConfirmation}
+                disabled={loading}
+                className="text-sm font-medium text-primary hover:text-primary-hover disabled:opacity-70"
+              >
+                Gửi lại email xác nhận
+              </button>
+            </div>
+          )}
 
           <div className="mt-8 text-center text-sm text-neutral-600">
             Đã có tài khoản?{" "}

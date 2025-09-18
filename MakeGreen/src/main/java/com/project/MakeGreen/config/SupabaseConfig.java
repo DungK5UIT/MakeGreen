@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 public class SupabaseConfig {
     private String url;
     private String anonKey;
+    private String serviceRoleKey; // Thêm field serviceRoleKey
 
     // Getters và Setters
     public String getUrl() {
@@ -24,5 +25,13 @@ public class SupabaseConfig {
 
     public void setAnonKey(String anonKey) {
         this.anonKey = anonKey;
+    }
+
+    public String getServiceRoleKey() {
+        return serviceRoleKey;
+    }
+
+    public void setServiceRoleKey(String serviceRoleKey) {
+        this.serviceRoleKey = serviceRoleKey;
     }
 }

@@ -8,9 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/user")
@@ -20,20 +18,36 @@ public class UserController {
     private final NguoiDungRepository repo;
 
     @GetMapping("/me")
-    public ResponseEntity<UserResponse> me(Authentication auth) {
-        String userId = auth.getName();
-        var user = repo.findById(UUID.fromString(userId)).orElse(null);
-        if (user == null) return ResponseEntity.status(404).body(null);
+    public ResponseEntity<?> me(Authentication auth) {
+        try {
+            UUID userId = UUID.fromString(auth.getName());
+            NguoiDung user = repo.findById(userId).orElse(null);
+            if (user == null) {
+                return ResponseEntity.notFound().build();
+            }
 
-        String[] roles = user.getVaiTros().stream()
-            .map(v -> v.getMa())
-            .toArray(String[]::new);
+            // Nếu chưa enabled (chưa xác nhận email), chặn lại
+            if (Boolean.FALSE.equals(user.getEnabled())) {
+                return ResponseEntity.status(403).body("Tài khoản chưa được kích hoạt");
+            }
 
-        UserResponse response = new UserResponse(
-            user.getId().toString(),
-            user.getEmail(),
-            roles
-        );
-        return ResponseEntity.ok(response);
+            String[] roles = user.getVaiTros().stream()
+                    .map(v -> v.getMa())
+                    .toArray(String[]::new);
+            UserResponse response = new UserResponse(
+            	    user.getId().toString(),
+            	    user.getEmail(),
+            	    roles
+            	);
+
+            // Debug log
+            System.out.printf("User /me: id=%s, hoTen='%s', sdt='%s'%n",
+                    userId, user.getHoTen(), user.getSdt());
+
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            // Nếu auth.getName() không phải UUID hợp lệ
+            return ResponseEntity.badRequest().body("Invalid user ID");
+        }
     }
 }

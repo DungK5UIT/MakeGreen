@@ -18,7 +18,7 @@ export default function HomePage() {
         
         // Lấy 3 xe nổi bật
         const { data: vehiclesData, error: vehiclesError } = await supabase
-          .from('v_fe_vehicle_cards')
+          .from('xe')
           .select('*')
           .limit(3);
         

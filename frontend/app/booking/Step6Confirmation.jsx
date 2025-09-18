@@ -1,7 +1,17 @@
 import React from 'react';
 
 const Step6Confirmation = ({ bookingId, total, status, message, router }) => {
-  console.log('Step6Confirmation - Total:', total.toLocaleString('vi-VN'), 'Status:', status, 'Message:', message); // Debug log
+  console.log('Step6Confirmation - Total:', total, 'BookingId:', bookingId, 'Status:', status, 'Message:', message);
+
+  // ✅ CHẶN RENDER NẾU THIẾU DỮ LIỆU BẮT BUỘC
+  if (!bookingId || total === undefined || total === null) {
+    return (
+      <div className="text-center py-12">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary mb-4"></div>
+        <p className="text-gray-600">Đang tải thông tin đơn hàng...</p>
+      </div>
+    );
+  }
 
   const depositAmount = total * 0.5; // 50% tiền cọc
 
@@ -37,7 +47,7 @@ const Step6Confirmation = ({ bookingId, total, status, message, router }) => {
             </div>
           </div>
 
-          {/* CỘT PHẢI — ĐÃ THÊM SỐ TIỀN THANH TOÁN NGAY DƯỚI TRẠNG THÁI THANH TOÁN */}
+          {/* CỘT PHẢI */}
           <div className="space-y-3">
             <div>
               <p className="text-sm text-gray-600">Trạng thái thanh toán</p>

@@ -142,11 +142,11 @@ public class PaymentController {
 
     private ResponseEntity<?> buildRedirectResponse(String donThueId, String status, String message) {
         try {
-            // Lấy vehicleSlug từ don_thue
-            String vehicleSlug = getVehicleSlugFromDonThue(donThueId);
-            if (vehicleSlug == null || vehicleSlug.isEmpty()) {
-                logger.warn("Cannot find vehicleSlug for donThueId: {}", donThueId);
-                vehicleSlug = "";
+            // Lấy vehicleId từ don_thue
+            String vehicleId = getVehicleIdFromDonThue(donThueId);
+            if (vehicleId == null || vehicleId.isEmpty()) {
+                logger.warn("Cannot find vehicleId for donThueId: {}", donThueId);
+                vehicleId = "";
             }
 
             // Lấy total từ don_thue
@@ -166,10 +166,10 @@ public class PaymentController {
                 total = 0; // Fallback
             }
 
-            // Tạo redirect URL với total
-            String redirectUrl = String.format("%s?slug=%s&status=%s&message=%s&donThueId=%s&total=%d",
+            // Tạo redirect URL với total và vehicleId
+            String redirectUrl = String.format("%s?vehicleId=%s&status=%s&message=%s&donThueId=%s&total=%d",
                     FRONTEND_RETURN_URL,
-                    URLEncoder.encode(vehicleSlug, StandardCharsets.UTF_8.toString()),
+                    URLEncoder.encode(vehicleId, StandardCharsets.UTF_8.toString()),
                     status,
                     URLEncoder.encode(message, StandardCharsets.UTF_8.toString()),
                     donThueId != null ? donThueId : "",
@@ -186,33 +186,23 @@ public class PaymentController {
         }
     }
 
-    private String getVehicleSlugFromDonThue(String donThueId) {
+    private String getVehicleIdFromDonThue(String donThueId) {
         if (donThueId == null) {
             logger.warn("donThueId is null");
             return "";
         }
         try {
             UUID uuid = UUID.fromString(donThueId);
-            // Sử dụng query custom với JOIN FETCH để eager load xe và dong_xe
-            String jpql = "SELECT d FROM DonThue d " +
-                          "JOIN FETCH d.xe x " +
-                          "JOIN FETCH x.dongXe dx " +
-                          "WHERE d.id = :id";
-            DonThue donThue = entityManager.createQuery(jpql, DonThue.class)
+            String jpql = "SELECT d.xe.id FROM DonThue d WHERE d.id = :id";
+            UUID id = entityManager.createQuery(jpql, UUID.class)
                     .setParameter("id", uuid)
                     .getSingleResult();
             
-            if (donThue == null || donThue.getXe() == null || donThue.getXe().getDongXe() == null) {
-                logger.warn("Cannot find xe or dong_xe for donThueId: {}", donThueId);
+            if (id == null) {
+                logger.warn("Id is null for xe in donThueId: {}", donThueId);
                 return "";
             }
-            
-            String slug = donThue.getXe().getDongXe().getSlug();
-            if (slug == null || slug.isEmpty()) {
-                logger.warn("Slug is null for dongXe in donThueId: {}", donThueId);
-                return "";
-            }
-            return slug;
+            return id.toString();
         } catch (NoResultException e) {
             logger.warn("DonThue not found for id: {}", donThueId);
             return "";
@@ -223,7 +213,7 @@ public class PaymentController {
             logger.error("Invalid UUID format for donThueId: {}", donThueId, e);
             return "";
         } catch (Exception e) {
-            logger.error("Error fetching vehicle slug for donThueId: {}", donThueId, e);
+            logger.error("Error fetching vehicle id for donThueId: {}", donThueId, e);
             return "";
         }
     }
