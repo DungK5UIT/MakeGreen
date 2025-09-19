@@ -9,7 +9,7 @@ import Link from 'next/link';
 
 // Custom icons - cập nhật đường dẫn theo /public/images
 const vehicleIcon = L.icon({
-  iconUrl: '/images/motorcycle.png', // Icon xe máy
+  iconUrl: '/images/trips/motorcycle.png', // Icon xe máy
   iconSize: [32, 32],
   iconAnchor: [16, 32],
   popupAnchor: [0, -32],
@@ -17,20 +17,20 @@ const vehicleIcon = L.icon({
 });
 
 const startIcon = L.icon({
-  iconUrl: '/images/green-flag.png', // Cờ xanh lá cho điểm đi
+  iconUrl: '/images/trips/green-flag.png', // Cờ xanh lá cho điểm đi
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [0, -41],
 });
 
 const endIcon = L.icon({
-  iconUrl: '/images/red-flag.png', // Cờ đỏ cho điểm đến
+  iconUrl: '/images/trips/red-flag.png', // Cờ đỏ cho điểm đến
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [0, -41],
 });
 
-// Hàm tính khoảng cách Haversine (giữ nguyên)
+// Hàm tính khoảng cách Haversine
 function haversineDistance(coords1, coords2) {
   const R = 6371;
   const dLat = (coords2[0] - coords1[0]) * Math.PI / 180;
@@ -112,11 +112,25 @@ export default function TripTrackingPage() {
   const [path, setPath] = useState([]);
   const [loading, setLoading] = useState(true);
   const [noTrip, setNoTrip] = useState(false);
+  const [isTripStarted, setIsTripStarted] = useState(false); // State to track if trip has started
   const channelsRef = useRef({ lichSuChannel: null, viTriChannel: null });
   const markerRef = useRef(null);
   const isAutoCompletingRef = useRef(false);
 
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+
+  // Structured logging function with improved formatting
+  const logMessage = (type, message, details = {}) => {
+    const timestamp = new Date().toISOString();
+    const typeColor = type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : type === 'info' ? '#3b82f6' : '#f59e0b';
+    console.log(
+      `%c[${type.toUpperCase()}] %c${timestamp} %c- ${message}`,
+      `color: ${typeColor}; font-weight: bold;`,
+      'color: #6b7280; font-style: italic;',
+      `color: ${typeColor};`,
+      details
+    );
+  };
 
   // Fallback function để hoàn thành chuyến đi bằng Supabase nếu API không hoạt động
   const completeTripWithSupabase = async (chuyenDiId, pathData) => {
@@ -137,12 +151,19 @@ export default function TripTrackingPage() {
         .delete()
         .eq('chuyen_di_id', chuyenDiId);
 
-      if (deleteError) console.error('Delete lich su error:', deleteError);
+      const { error: updateXeError } = await supabase
+        .from('xe')
+        .update({ trang_thai: 'AVAILABLE' })
+        .eq('id', tripData.xe_id);
 
-      console.log('Supabase complete successful');
+      if (updateXeError) logMessage('error', 'Failed to update xe to AVAILABLE', { error: updateXeError });
+      else logMessage('success', 'Updated xe to AVAILABLE via Supabase');
+      if (deleteError) logMessage('error', 'Failed to delete lich_su_vi_tri', { error: deleteError });
+
+      logMessage('success', 'Trip completed successfully via Supabase', { chuyenDiId });
       return true;
     } catch (error) {
-      console.error('Supabase complete error:', error);
+      logMessage('error', 'Failed to complete trip via Supabase', { error, chuyenDiId });
       return false;
     }
   };
@@ -157,41 +178,75 @@ export default function TripTrackingPage() {
       });
 
       if (!response.ok) {
-        console.warn(`API failed with status: ${response.status} ${response.statusText}`);
-        console.log('Falling back to Supabase for trip completion');
+        logMessage('warning', `API failed with status: ${response.status}`, { statusText: response.statusText });
+        logMessage('info', 'Falling back to Supabase for trip completion', { chuyenDiId });
         return await completeTripWithSupabase(chuyenDiId, pathData);
       }
 
-      console.log('API complete successful');
+      logMessage('success', 'Trip completed successfully via API', { chuyenDiId });
       return true;
     } catch (error) {
-      console.error('API complete error:', error);
-      console.log('Falling back to Supabase for trip completion');
+      logMessage('error', 'API complete error', { error, chuyenDiId });
+      logMessage('info', 'Falling back to Supabase for trip completion', { chuyenDiId });
       return await completeTripWithSupabase(chuyenDiId, pathData);
     }
   };
 
-  // Hàm tự động kết thúc chuyến - sử dụng useCallback để tránh stale closure
+  // Fallback function để ghi sự cố bằng Supabase nếu API không hoạt động
+  const reportIssueWithSupabase = async (xeId, nguoiBaoCaoId, mucDo, moTa) => {
+    try {
+      const { data, error } = await supabase
+        .from('su_co')
+        .insert({
+          xe_id: xeId,
+          nguoi_bao_cao_id: nguoiBaoCaoId,
+          muc_do: mucDo,
+          mo_ta: moTa,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      logMessage('success', 'Issue reported successfully via Supabase', { suCoId: data.id });
+      return true;
+    } catch (error) {
+      logMessage('error', 'Failed to report issue via Supabase', { error });
+      return false;
+    }
+  };
+
+  // Hàm tự động kết thúc chuyến
   const autoCompleteTrip = useCallback(async () => {
     if (isAutoCompletingRef.current) {
-      console.log('Auto complete already in progress, skipping');
+      logMessage('info', 'Auto complete already in progress, skipping', { chuyenDiId: tripData.chuyen_di_id });
       return;
     }
 
     if (!tripData.chuyen_di_id || tripData.isCompleted || tripData.totalDistance === 0) {
-      console.log('Auto complete skipped: no chuyen_di_id, already completed, or totalDistance=0');
+      logMessage('info', 'Auto complete skipped', {
+        chuyenDiId: tripData.chuyen_di_id,
+        isCompleted: tripData.isCompleted,
+        totalDistance: tripData.totalDistance,
+      });
       return;
     }
 
-    console.log('Checking auto complete: distance=', tripData.distance, 'totalDistance=', tripData.totalDistance);
+    logMessage('info', 'Checking auto complete conditions', {
+      distance: tripData.distance,
+      totalDistance: tripData.totalDistance,
+    });
 
     if (tripData.distance < tripData.totalDistance) {
-      console.log('Distance not reached yet');
+      logMessage('info', 'Distance not reached yet', {
+        distance: tripData.distance,
+        totalDistance: tripData.totalDistance,
+      });
       return;
     }
 
     isAutoCompletingRef.current = true;
-    console.log('Starting auto complete process');
+    logMessage('info', 'Starting auto complete process', { chuyenDiId: tripData.chuyen_di_id });
 
     const success = await completeTripAPI(tripData.chuyen_di_id, path);
     if (success) {
@@ -200,8 +255,9 @@ export default function TripTrackingPage() {
 
       setTripData(prev => ({ ...prev, isCompleted: true }));
       alert('Chuyến đi đã tự động hoàn thành khi đến đích!');
+      logMessage('success', 'Trip auto-completed successfully', { chuyenDiId: tripData.chuyen_di_id });
     } else {
-      console.error('Failed to complete trip even with fallback');
+      logMessage('error', 'Failed to complete trip even with fallback', { chuyenDiId: tripData.chuyen_di_id });
       alert('Lỗi khi tự động hoàn thành chuyến đi. Vui lòng thử kết thúc thủ công.');
     }
 
@@ -210,9 +266,16 @@ export default function TripTrackingPage() {
 
   // useEffect theo dõi distance và totalDistance để kiểm tra auto complete
   useEffect(() => {
-    console.log('useEffect triggered - distance:', tripData.distance, 'total:', tripData.totalDistance, 'completed:', tripData.isCompleted);
+    logMessage('info', 'Monitoring distance for auto complete', {
+      distance: tripData.distance,
+      totalDistance: tripData.totalDistance,
+      isCompleted: tripData.isCompleted,
+    });
     if (tripData.chuyen_di_id && !tripData.isCompleted && tripData.totalDistance > 0 && tripData.distance >= tripData.totalDistance) {
-      console.log('Auto complete triggered by useEffect');
+      logMessage('info', 'Triggering auto complete due to distance reached', {
+        distance: tripData.distance,
+        totalDistance: tripData.totalDistance,
+      });
       autoCompleteTrip();
     }
   }, [tripData.distance, tripData.totalDistance, tripData.isCompleted, tripData.chuyen_di_id, autoCompleteTrip]);
@@ -223,11 +286,12 @@ export default function TripTrackingPage() {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        logMessage('error', 'User not authenticated, redirecting to login', {});
         window.location.href = '/login';
         return;
       }
 
-      console.log('Fetching trip data for user:', user.id);
+      logMessage('info', 'Fetching trip data for user', { userId: user.id });
 
       const { data: chuyenDiData, error: chuyenError } = await supabase
         .from('chuyen_di')
@@ -237,13 +301,13 @@ export default function TripTrackingPage() {
         .single();
 
       if (chuyenError || !chuyenDiData) {
-        console.error('No pending chuyen_di found:', chuyenError);
+        logMessage('error', 'No pending chuyen_di found', { error: chuyenError });
         setNoTrip(true);
         setLoading(false);
         return;
       }
 
-      console.log('Found chuyen_di:', chuyenDiData.id);
+      logMessage('success', 'Found pending chuyen_di', { chuyenDiId: chuyenDiData.id });
 
       const startDate = new Date(chuyenDiData.bat_dau_luc);
       const formattedStartTime = `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`;
@@ -263,7 +327,7 @@ export default function TripTrackingPage() {
         .single();
 
       if (!xeError && xeData) {
-        console.log('Xe data:', xeData);
+        logMessage('success', 'Fetched vehicle data', { xeId: chuyenDiData.xe_id, name: xeData.name });
         setTripData(prev => ({
           ...prev,
           vehicleName: xeData.name || 'Xe Vision',
@@ -272,7 +336,7 @@ export default function TripTrackingPage() {
           range_km: xeData.range_km || 100,
         }));
       } else {
-        console.error('Xe error:', xeError);
+        logMessage('error', 'Failed to fetch vehicle data', { error: xeError });
       }
 
       let tramThuePosition = null;
@@ -285,7 +349,7 @@ export default function TripTrackingPage() {
           .single();
         if (tramThueData) {
           tramThuePosition = [Number(tramThueData.lat), Number(tramThueData.lng)];
-          console.log('Tram thue position:', tramThuePosition);
+          logMessage('success', 'Fetched tram thue position', { position: tramThuePosition });
         }
       }
       if (chuyenDiData.don_thue?.tram_tra_id) {
@@ -296,16 +360,16 @@ export default function TripTrackingPage() {
           .single();
         if (tramTraData) {
           tramTraPosition = [Number(tramTraData.lat), Number(tramTraData.lng)];
-          console.log('Tram tra position:', tramTraPosition);
+          logMessage('success', 'Fetched tram tra position', { position: tramTraPosition });
         }
       }
 
       let totalDistance = 0;
       if (tramThuePosition && tramTraPosition) {
         totalDistance = Math.round(haversineDistance(tramThuePosition, tramTraPosition) * 10) / 10;
-        console.log('Calculated totalDistance:', totalDistance);
+        logMessage('success', 'Calculated total distance', { totalDistance });
       } else {
-        console.warn('Missing tram positions, totalDistance set to 0');
+        logMessage('warning', 'Missing tram positions, totalDistance set to 0', {});
       }
 
       setTripData(prev => ({
@@ -324,7 +388,7 @@ export default function TripTrackingPage() {
 
       if (viTriError || !existingViTri) {
         if (!tramThuePosition) {
-          console.error('No tram_thue_position for default vi_tri_xe');
+          logMessage('error', 'No tram_thue_position for default vi_tri_xe', {});
           setNoTrip(true);
           setLoading(false);
           return;
@@ -343,16 +407,16 @@ export default function TripTrackingPage() {
           .single();
 
         if (insertError || !insertedViTri) {
-          console.error('Insert vi_tri error:', insertError);
+          logMessage('error', 'Failed to insert vi_tri_xe', { error: insertError });
           setNoTrip(true);
           setLoading(false);
           return;
         }
         viTriData = insertedViTri;
-        console.log('Inserted default vi_tri_xe:', viTriData);
+        logMessage('success', 'Inserted default vi_tri_xe', { viTriData });
       } else {
         viTriData = existingViTri;
-        console.log('Existing vi_tri_xe:', viTriData);
+        logMessage('success', 'Fetched existing vi_tri_xe', { viTriData });
       }
 
       const currentPosition = [viTriData.lat || 21.0285, viTriData.lng || 105.8412];
@@ -369,7 +433,11 @@ export default function TripTrackingPage() {
         range_km: currentRangeKm,
       }));
 
-      console.log('Initial tripData set: distance=', viTriData.so_km, 'totalDistance=', totalDistance);
+      logMessage('success', 'Initial trip data set', {
+        distance: viTriData.so_km,
+        totalDistance,
+        position: currentPosition,
+      });
 
       const { data: lichSuData, error: lichSuError } = await supabase
         .from('lich_su_vi_tri')
@@ -379,7 +447,7 @@ export default function TripTrackingPage() {
 
       if (!lichSuError && lichSuData && lichSuData.length > 0) {
         setPath(lichSuData.map(item => [item.lat, item.lng]));
-        console.log('Loaded path from lich_su:', lichSuData.length, 'points');
+        logMessage('success', 'Loaded path from lich_su_vi_tri', { points: lichSuData.length });
       } else if (tramThuePosition) {
         setPath([tramThuePosition, currentPosition]);
         await supabase
@@ -392,10 +460,10 @@ export default function TripTrackingPage() {
             toc_do: viTriData.toc_do || 0,
             so_km: viTriData.so_km || 0,
           });
-        console.log('Initialized path and inserted first lich_su');
+        logMessage('success', 'Initialized path and inserted first lich_su_vi_tri', { position: currentPosition });
       } else {
         setPath([currentPosition]);
-        console.log('Initialized path with current position only');
+        logMessage('success', 'Initialized path with current position only', { position: currentPosition });
       }
 
       const lichSuChannel = supabase.channel('lich_su_vi_tri_changes')
@@ -405,7 +473,11 @@ export default function TripTrackingPage() {
           table: 'lich_su_vi_tri',
           filter: `chuyen_di_id=eq.${chuyenDiData.id}`,
         }, (payload) => {
-          console.log('Lich su payload received:', payload.new.so_km, 'vs total:', totalDistance);
+          logMessage('info', 'Received lich_su_vi_tri update', {
+            so_km: payload.new.so_km,
+            totalDistance,
+            position: [payload.new.lat, payload.new.lng],
+          });
           setTripData(prev => {
             if (prev.isCompleted) return prev;
             const newPosition = [payload.new.lat, payload.new.lng];
@@ -433,7 +505,11 @@ export default function TripTrackingPage() {
           table: 'vi_tri_xe',
           filter: `xe_id=eq.${chuyenDiData.xe_id}`,
         }, (payload) => {
-          console.log('Vi tri payload received:', payload.new.so_km, 'vs total:', totalDistance);
+          logMessage('info', 'Received vi_tri_xe update', {
+            so_km: payload.new.so_km,
+            totalDistance,
+            position: [payload.new.lat, payload.new.lng],
+          });
           setTripData(prev => {
             if (prev.isCompleted) return prev;
             const newPosition = [payload.new.lat, payload.new.lng];
@@ -470,9 +546,21 @@ export default function TripTrackingPage() {
     fetchAndSubscribe();
   }, []);
 
-  // Mô phỏng dữ liệu - cải thiện để di chuyển thực tế hơn
+  // Hàm bắt đầu chuyến đi
+  const startTrip = () => {
+    if (isTripStarted) {
+      logMessage('info', 'Trip already started', { chuyenDiId: tripData.chuyen_di_id });
+      alert('Chuyến đi đã được bắt đầu!');
+      return;
+    }
+    setIsTripStarted(true);
+    logMessage('success', 'Trip started', { chuyenDiId: tripData.chuyen_di_id });
+    alert('Chuyến đi đã bắt đầu!');
+  };
+
+  // Mô phỏng dữ liệu - chỉ chạy khi chuyến đi đã bắt đầu
   useEffect(() => {
-    if (!tripData.chuyen_di_id || tripData.isCompleted || !tripData.tram_thue_position || !tripData.tram_tra_position) return;
+    if (!isTripStarted || !tripData.chuyen_di_id || tripData.isCompleted || !tripData.tram_thue_position || !tripData.tram_tra_position) return;
 
     const interval = setInterval(async () => {
       const prevDistance = tripData.distance;
@@ -513,7 +601,13 @@ export default function TripTrackingPage() {
           so_km: newDistance,
         });
 
-      console.log('Simulation update: newDistance=', newDistance.toFixed(1), 'total=', tripData.totalDistance, 'position=', [newLat.toFixed(4), newLng.toFixed(4)]);
+      logMessage('info', 'Simulation update', {
+        newDistance: newDistance.toFixed(1),
+        totalDistance: tripData.totalDistance,
+        position: [newLat.toFixed(4), newLng.toFixed(4)],
+        battery: newBattery.toFixed(1),
+        speed: newSpeed.toFixed(1),
+      });
 
       setTripData(prev => ({
         ...prev,
@@ -526,13 +620,12 @@ export default function TripTrackingPage() {
     }, 2000); // Cập nhật mỗi 2s
 
     return () => clearInterval(interval);
-  }, [tripData.distance, tripData.battery, tripData.position, tripData.chuyen_di_id, tripData.xe_id, tripData.pin_tieu_thu_per_km, tripData.range_km, tripData.isCompleted, tripData.totalDistance, tripData.tram_thue_position, tripData.tram_tra_position]);
+  }, [isTripStarted, tripData.distance, tripData.battery, tripData.position, tripData.chuyen_di_id, tripData.xe_id, tripData.pin_tieu_thu_per_km, tripData.range_km, tripData.isCompleted, tripData.totalDistance, tripData.tram_thue_position, tripData.tram_tra_position]);
 
   // Animate marker
   useEffect(() => {
     if (markerRef.current) {
       markerRef.current.setLatLng(tripData.position);
-      // Thêm hiệu ứng nhẹ khi di chuyển
       if (markerRef.current._icon) {
         markerRef.current._icon.style.transition = 'transform 0.5s ease-in-out';
       }
@@ -542,6 +635,7 @@ export default function TripTrackingPage() {
   // Kết thúc chuyến thủ công
   const endTrip = async () => {
     if (tripData.isCompleted) {
+      logMessage('info', 'Trip already completed', { chuyenDiId: tripData.chuyen_di_id });
       alert('Chuyến đi đã tự động hoàn thành!');
       return;
     }
@@ -552,21 +646,25 @@ export default function TripTrackingPage() {
         if (channelsRef.current.viTriChannel) supabase.removeChannel(channelsRef.current.viTriChannel);
 
         setTripData(prev => ({ ...prev, isCompleted: true }));
+        logMessage('success', 'Trip manually completed', { chuyenDiId: tripData.chuyen_di_id });
         alert('Chuyến đi đã kết thúc! Cảm ơn bạn đã sử dụng dịch vụ.');
       } else {
-        console.error('Failed to complete trip even with fallback');
+        logMessage('error', 'Failed to complete trip manually', { chuyenDiId: tripData.chuyen_di_id });
         alert('Lỗi khi kết thúc chuyến đi. Vui lòng thử lại.');
       }
     }
   };
 
-  // Các hàm khác
+  // Hàm liên hệ hỗ trợ
   const contactSupport = () => {
+    logMessage('info', 'Contact support initiated', { userId: tripData.nguoi_dung_id });
     alert('Đang kết nối với bộ phận hỗ trợ khách hàng...\nHotline: 1900-1234');
   };
 
+  // Hàm báo sự cố với fallback sang Supabase
   const reportIssue = async () => {
     if (tripData.isCompleted) {
+      logMessage('info', 'Cannot report issue, trip already completed', { chuyenDiId: tripData.chuyen_di_id });
       alert('Chuyến đi đã hoàn thành, không thể báo sự cố nữa.');
       return;
     }
@@ -581,37 +679,95 @@ export default function TripTrackingPage() {
         .single();
 
       if (chuyenDiData) {
-        const { error } = await supabase
-          .from('su_co')
-          .insert({
-            xe_id: chuyenDiData.xe_id,
-            nguoi_bao_cao_id: tripData.nguoi_dung_id,
-            muc_do: 'MEDIUM',
-            mo_ta: issues[issue - 1],
+        const moTa = issues[issue - 1];
+        const mucDo = 'MEDIUM';
+        const nguoiBaoCaoId = tripData.nguoi_dung_id;
+        const xeId = chuyenDiData.xe_id;
+
+        try {
+          const params = new URLSearchParams();
+          params.append('xeId', xeId);
+          params.append('nguoiBaoCaoId', nguoiBaoCaoId);
+          params.append('mucDo', mucDo);
+          params.append('moTa', moTa);
+
+          const response = await fetch('http://localhost:8080/api/su-co', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: params.toString(),
           });
 
-        if (!error) {
-          alert(`Đã ghi nhận sự cố: ${issues[issue - 1]}\nChúng tôi sẽ liên hệ với bạn sớm nhất.`);
-        } else {
-          alert('Lỗi khi báo sự cố.');
+          if (!response.ok) {
+            logMessage('warning', `API failed with status: ${response.status}`, { statusText: response.statusText });
+            logMessage('info', 'Falling back to Supabase for issue report');
+            const fallbackSuccess = await reportIssueWithSupabase(xeId, nguoiBaoCaoId, mucDo, moTa);
+            if (!fallbackSuccess) {
+              throw new Error('Fallback to Supabase also failed');
+            }
+          } else {
+            const result = await response.json();
+            logMessage('success', 'Issue reported successfully via API', {
+              issue: moTa,
+              xeId,
+              userId: nguoiBaoCaoId,
+              suCoId: result.id,
+            });
+          }
+
+          alert(`Đã ghi nhận sự cố: ${moTa}\nChúng tôi sẽ liên hệ với bạn sớm nhất.`);
+
+          // Tự động hoàn thành chuyến đi sau khi báo sự cố thành công
+          const completeSuccess = await completeTripAPI(tripData.chuyen_di_id, path);
+          if (completeSuccess) {
+            if (channelsRef.current.lichSuChannel) supabase.removeChannel(channelsRef.current.lichSuChannel);
+            if (channelsRef.current.viTriChannel) supabase.removeChannel(channelsRef.current.viTriChannel);
+            setTripData(prev => ({ ...prev, isCompleted: true }));
+            logMessage('success', 'Trip completed automatically after issue report', { chuyenDiId: tripData.chuyen_di_id });
+            alert('Chuyến đi đã được hoàn thành do báo sự cố.');
+          } else {
+            logMessage('error', 'Failed to complete trip after issue report', { chuyenDiId: tripData.chuyen_di_id });
+            alert('Lỗi khi hoàn thành chuyến đi sau báo sự cố. Vui lòng thử kết thúc thủ công.');
+          }
+        } catch (error) {
+          logMessage('error', 'Failed to report issue', { error: error.message });
+          alert(`Lỗi khi báo sự cố: ${error.message}`);
         }
+      } else {
+        logMessage('error', 'No active trip found for issue reporting', { userId: tripData.nguoi_dung_id });
+        alert('Không tìm thấy chuyến đi đang hoạt động.');
       }
+    } else {
+      logMessage('warning', 'Invalid issue selection', { input: issue });
+      alert('Lựa chọn không hợp lệ.');
     }
   };
 
-  // Giao diện khi không có chuyến đi
+  // Giao diện khi không có chuyến đi hoặc chuyến đi đã hoàn thành
   if (noTrip || tripData.isCompleted) {
     return (
-      <div className="bg-gray-50 min-h-screen font-inter flex items-center justify-center">
-        <div className="bg-white p-8 rounded-xl shadow-lg text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+      <div className="bg-gray-50 min-h-screen font-inter flex items-center justify-center px-4">
+        <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-md w-full">
+          <div className="mb-6">
+            {tripData.isCompleted ? (
+              <svg className="w-16 h-16 mx-auto text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : (
+              <svg className="w-16 h-16 mx-auto text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-3">
             {tripData.isCompleted ? 'Chuyến đi đã hoàn thành!' : 'Không có chuyến đi đang diễn ra'}
           </h1>
-          <p className="text-gray-600 mb-6">
-            {tripData.isCompleted ? 'Cảm ơn bạn đã sử dụng dịch vụ.' : 'Vui lòng đặt xe để theo dõi chuyến đi.'}
+          <p className="text-gray-600 mb-8">
+            {tripData.isCompleted ? 'Cảm ơn bạn đã sử dụng dịch vụ. Chúng tôi mong được phục vụ bạn lần sau!' : 'Vui lòng đặt xe để bắt đầu một chuyến đi mới.'}
           </p>
           <Link href="/vehicles">
-            <button className="bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-3 px-6 rounded-lg transition-colors">
+            <button className="bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-3 px-6 rounded-xl transition-colors w-full">
               Đặt xe ngay
             </button>
           </Link>
@@ -623,10 +779,13 @@ export default function TripTrackingPage() {
   // Giao diện loading
   if (loading) {
     return (
-      <div className="bg-gray-50 min-h-screen font-inter flex items-center justify-center">
-        <div className="bg-white p-8 rounded-xl shadow-lg text-center">
-          <h1 className="text-xl font-semibold text-gray-900 mb-4">Đang tải dữ liệu chuyến đi...</h1>
-          <div className="animate-spin w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto"></div>
+      <div className="bg-gray-50 min-h-screen font-inter flex items-center justify-center px-4">
+        <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-md w-full">
+          <div className="mb-6">
+            <div className="animate-spin w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto"></div>
+          </div>
+          <h1 className="text-xl font-semibold text-gray-900 mb-3">Đang tải dữ liệu chuyến đi...</h1>
+          <p className="text-gray-600">Vui lòng chờ trong giây lát.</p>
         </div>
       </div>
     );
@@ -713,7 +872,7 @@ export default function TripTrackingPage() {
         </div>
       </div>
 
-      {/* Map - cải thiện để theo dõi thực tế và mượt hơn */}
+      {/* Map */}
       <div className="mx-4 mt-4 rounded-xl overflow-hidden shadow-sm border border-gray-100 h-[60vh]">
         <MapContainer center={tripData.position} zoom={15} className="w-full h-full">
           <TileLayer
@@ -726,7 +885,6 @@ export default function TripTrackingPage() {
             tramThuePosition={tripData.tram_thue_position}
             tramTraPosition={tripData.tram_tra_position}
           />
-          {/* Marker xe máy */}
           <Marker position={tripData.position} icon={vehicleIcon} ref={markerRef}>
             <Popup autoClose={false} closeOnClick={false}>
               <div className="text-sm">
@@ -737,7 +895,6 @@ export default function TripTrackingPage() {
               </div>
             </Popup>
           </Marker>
-          {/* Đường đi thực tế (đã đi) - xanh dương đậm, mượt */}
           {path.length > 1 && (
             <Polyline
               positions={path}
@@ -747,7 +904,6 @@ export default function TripTrackingPage() {
               smoothFactor={2}
             />
           )}
-          {/* Đường dự kiến đến điểm đến - xanh lá, nét đứt */}
           {tripData.tram_tra_position && !tripData.isCompleted && (
             <Polyline
               positions={[tripData.position, tripData.tram_tra_position]}
@@ -758,7 +914,6 @@ export default function TripTrackingPage() {
               smoothFactor={2}
             />
           )}
-          {/* Marker điểm đi (trạm thuê) - cờ xanh lá */}
           {tripData.tram_thue_position && (
             <Marker position={tripData.tram_thue_position} icon={startIcon}>
               <Popup>
@@ -769,7 +924,6 @@ export default function TripTrackingPage() {
               </Popup>
             </Marker>
           )}
-          {/* Marker điểm đến (trạm trả) - cờ đỏ */}
           {tripData.tram_tra_position && (
             <Marker position={tripData.tram_tra_position} icon={endIcon}>
               <Popup>
@@ -785,10 +939,20 @@ export default function TripTrackingPage() {
 
       {/* Control Panel */}
       <div className="bg-white mx-4 mt-4 mb-6 rounded-xl shadow-sm border border-gray-100 p-4">
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
+          <button
+            onClick={startTrip}
+            disabled={isTripStarted || tripData.isCompleted}
+            className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-medium py-3 px-4 rounded-lg transition-colors flex flex-col items-center space-y-1"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-6.752-3.584v7.168l6.752-3.584z" />
+            </svg>
+            <span className="text-xs">Bắt đầu</span>
+          </button>
           <button
             onClick={endTrip}
-            disabled={tripData.isCompleted}
+            disabled={!isTripStarted || tripData.isCompleted}
             className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white font-medium py-3 px-4 rounded-lg transition-colors flex flex-col items-center space-y-1"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

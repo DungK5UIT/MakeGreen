@@ -1,10 +1,21 @@
 package com.project.MakeGreen.models;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.time.ZonedDateTime;
 import java.util.UUID;
 
 @Entity
 @Table(name = "chuyen_di")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class ChuyenDi {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -32,25 +43,5 @@ public class ChuyenDi {
     private Double tongChiPhi;
 
     @Column(name = "path", columnDefinition = "jsonb")
-    private String path;
-
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-    public UUID getDonThueId() { return donThueId; }
-    public void setDonThueId(UUID donThueId) { this.donThueId = donThueId; }
-    public UUID getNguoiDungId() { return nguoiDungId; }
-    public void setNguoiDungId(UUID nguoiDungId) { this.nguoiDungId = nguoiDungId; }
-    public UUID getXeId() { return xeId; }
-    public void setXeId(UUID xeId) { this.xeId = xeId; }
-    public String getTrangThai() { return trangThai; }
-    public void setTrangThai(String trangThai) { this.trangThai = trangThai; }
-    public ZonedDateTime getBatDauLuc() { return batDauLuc; }
-    public void setBatDauLuc(ZonedDateTime batDauLuc) { this.batDauLuc = batDauLuc; }
-    public ZonedDateTime getKetThucLuc() { return ketThucLuc; }
-    public void setKetThucLuc(ZonedDateTime ketThucLuc) { this.ketThucLuc = ketThucLuc; }
-    public Double getTongChiPhi() { return tongChiPhi; }
-    public void setTongChiPhi(Double tongChiPhi) { this.tongChiPhi = tongChiPhi; }
-    public String getPath() { return path; }
-    public void setPath(String path) { this.path = path; }
+    private String path;	
 }

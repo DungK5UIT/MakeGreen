@@ -169,36 +169,37 @@ const BookingPage = () => {
     }
   };
 
-useEffect(() => {
-  checkAuth();
+  useEffect(() => {
+    checkAuth();
 
-  // ✅ SỬA: Lấy subscription đúng cách
-  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-    console.log('Auth state change:', event, 'Session:', session);
-    if (event === 'SIGNED_IN' && session?.user) {
-      setIsLoggedIn(true);
-      checkAuth();
-    } else if (event === 'SIGNED_OUT') {
-      setIsLoggedIn(false);
-      setIsVerified(false);
-      setCustomerInfo({
-        fullName: '',
-        phone: '',
-        email: '',
-        idNumber: '',
-        licenseNumber: '',
-        notes: '',
-      });
-    }
-  });
+    // ✅ SỬA: Lấy subscription đúng cách
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state change:', event, 'Session:', session);
+      if (event === 'SIGNED_IN' && session?.user) {
+        setIsLoggedIn(true);
+        checkAuth();
+      } else if (event === 'SIGNED_OUT') {
+        setIsLoggedIn(false);
+        setIsVerified(false);
+        setCustomerInfo({
+          fullName: '',
+          phone: '',
+          email: '',
+          idNumber: '',
+          licenseNumber: '',
+          notes: '',
+        });
+      }
+    });
 
-  // ✅ SỬA: Hủy đăng ký an toàn
-  return () => {
-    if (subscription) {
-      subscription.unsubscribe();
-    }
-  };
-}, []);
+    // ✅ SỬA: Hủy đăng ký an toàn
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
+  }, []);
+
   // Tính tổng tiền
   useEffect(() => {
     if (vehicle && pickupDate && returnDate) {
@@ -496,11 +497,12 @@ useEffect(() => {
 
       const busyXeIds = busyXeData.map(row => row.xe_id);
 
-      // Tìm xe khả dụng
+      // ✅ SỬA: Tìm xe khả dụng CHỈ VỚI vehicleId cụ thể
       let query = supabase
         .from('xe')
         .select('id')
-        .eq('trang_thai', 'AVAILABLE');
+        .eq('trang_thai', 'AVAILABLE')
+        .eq('id', vehicleId);  // Thêm filter theo vehicleId
 
       if (busyXeIds.length > 0) {
         query = query.not('id', 'in', `(${busyXeIds.join(',')})`);
@@ -511,8 +513,8 @@ useEffect(() => {
         .single();
 
       if (xeError || !availableXe) {
-        console.error('Lỗi tìm xe khả dụng:', xeError?.message || 'Không có xe phù hợp');
-        throw new Error('Không có xe khả dụng tại thời gian này. Vui lòng thử lại.');
+        console.error('Lỗi tìm xe khả dụng:', xeError?.message || 'Xe không còn khả dụng');
+        throw new Error('Xe không còn khả dụng tại thời gian này. Vui lòng chọn xe khác.');
       }
 
       // Tính toán chi phí
@@ -528,7 +530,7 @@ useEffect(() => {
         .from('don_thue')
         .insert({
           nguoi_dung_id,
-          xe_id: availableXe.id,
+          xe_id: availableXe.id,  // Giờ chắc chắn là vehicleId
           bat_dau_luc: batDauLuc.toISOString(),
           ket_thuc_luc: ketThucLuc.toISOString(),
           trang_thai: 'PENDING',
@@ -607,7 +609,17 @@ useEffect(() => {
       setPaymentStatus('SUCCESS');
       setPaymentMessage('Thanh toán hoàn tất!');
       setCurrentStep(6);
-
+      if (status === 'SUCCESS') {
+        // THÊM: Fetch xe status để confirm UI (optional, nếu cần hiển thị)
+        const fetchXeStatus = async () => {
+          const { data } = await supabase.from('xe').select('trang_thai').eq('id', vehicleId).single();
+          if (data.trang_thai === 'UNAVAILABLE') {
+            console.log('Xe is now UNAVAILABLE after payment');
+            // Có thể thêm toast thông báo
+          }
+        };
+        fetchXeStatus();
+      }
     } catch (err) {
       console.error('🔥 Lỗi đặt xe chi tiết:', {
         message: err.message,
@@ -617,8 +629,8 @@ useEffect(() => {
       });
       if (err.message.includes('Số điện thoại đã tồn tại')) {
         setError('Số điện thoại đã được sử dụng. Vui lòng <a href="/login" className="underline">đăng nhập</a> hoặc dùng số khác.');
-      } else if (err.message.includes('Không có xe khả dụng')) {
-        setError('Không có xe khả dụng tại thời gian này. Vui lòng thử lại.');
+      } else if (err.message.includes('Xe không còn khả dụng')) {
+        setError('Xe không còn khả dụng tại thời gian này. Vui lòng chọn xe khác.');
       } else if (err.message.includes('Lỗi xác thực người dùng')) {
         setError('Phiên đăng nhập không hợp lệ. Vui lòng <a href="/login" className="underline">đăng nhập lại</a>.');
       } else {
