@@ -1,10 +1,13 @@
 package com.project.MakeGreen.models;
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;  // Import this for SqlTypes.JSON
 
 import java.time.ZonedDateTime;
 import java.util.UUID;
@@ -42,6 +45,7 @@ public class ChuyenDi {
     @Column(name = "tong_chi_phi")
     private Double tongChiPhi;
 
+    @JdbcTypeCode(SqlTypes.JSON)  // Add this to handle jsonb mapping
     @Column(name = "path", columnDefinition = "jsonb")
     private String path;	
 }

@@ -1,3 +1,4 @@
+// Backend: PaymentController.java (full code with added log in handleVNPayCallback)
 package com.project.MakeGreen.controllers;
 
 import com.project.MakeGreen.dtos.responses.ErrorResponse;
@@ -106,6 +107,7 @@ public class PaymentController {
     @GetMapping("/vnpay/callback")
     public ResponseEntity<?> handleVNPayCallback(@RequestParam Map<String, String> params) {
         logger.info("Received VNPay callback with params: {}", params);
+
         try {
             String donThueId = params.get("vnp_TxnRef");
             String responseCode = params.get("vnp_ResponseCode");
@@ -121,7 +123,7 @@ public class PaymentController {
 
             // Process payment callback
             vnPayService.processPaymentCallback(params);
-            logger.info("Callback response code: {} for don_thue: {}", responseCode, donThueId);
+            logger.info("Processed callback with response code: {} for don_thue: {}", responseCode, donThueId);
 
             // Map response code to status
             status = "00".equals(responseCode) ? "SUCCESS" :
@@ -133,13 +135,12 @@ public class PaymentController {
             return buildRedirectResponse(donThueId, status, message);
 
         } catch (Exception e) {
-            logger.error("Error processing callback: {}", e.getMessage(), e);
+            logger.error("Error processing callback: {} - Params: {} - Stack: {}", e.getMessage(), params, e.getStackTrace());
             String message = e instanceof IllegalArgumentException ? e.getMessage() : "System error";
             String donThueId = params.get("vnp_TxnRef");
             return buildRedirectResponse(donThueId, "FAILED", message);
         }
     }
-
     private ResponseEntity<?> buildRedirectResponse(String donThueId, String status, String message) {
         try {
             // Lấy vehicleId từ don_thue

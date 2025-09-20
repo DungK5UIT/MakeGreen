@@ -1,3 +1,4 @@
+// Backend: VNPayService.java (full code with fixes: UTF_8 in verify, added detailed log in processPaymentCallback)
 package com.project.MakeGreen.services;
 
 import java.io.UnsupportedEncodingException;
@@ -23,6 +24,8 @@ import org.springframework.stereotype.Service;
 import com.project.MakeGreen.config.VNPayConfig;
 import com.project.MakeGreen.models.*;
 import com.project.MakeGreen.repositories.*;
+
+import jakarta.transaction.Transactional;
 
 @Service
 public class VNPayService {
@@ -110,63 +113,147 @@ public class VNPayService {
 
         return paymentUrl;
     }
+    public boolean verifyPaymentResponse(Map<String, String> params) {
+        try {
+            String vnp_SecureHash = params.get("vnp_SecureHash");
+            if (vnp_SecureHash == null) {
+                logger.warn("Missing vnp_SecureHash in callback params");
+                return false;
+            }
 
+            List<String> fieldNames = new ArrayList<>(params.keySet());
+            fieldNames.remove("vnp_SecureHashType"); // nếu có
+            fieldNames.remove("vnp_SecureHash");
+            Collections.sort(fieldNames);
+
+            StringBuilder hashData = new StringBuilder();
+            Iterator<String> itr = fieldNames.iterator();
+            while (itr.hasNext()) {
+                String fieldName = itr.next();
+                String fieldValue = params.get(fieldName);
+                if (fieldValue != null && !fieldValue.isEmpty()) {
+                    // SỬA: Dùng UTF_8 để consistent với buildQueryString
+                    String encodedFieldName = URLEncoder.encode(fieldName, StandardCharsets.UTF_8.toString());
+                    String encodedFieldValue = URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString());
+                    hashData.append(encodedFieldName).append("=").append(encodedFieldValue);
+                    if (itr.hasNext()) {
+                        hashData.append("&");
+                    }
+                }
+            }
+
+            String generatedHash = hmacSHA512(vnPayProperties.getHashSecret(), hashData.toString());
+            boolean isValid = vnp_SecureHash.equals(generatedHash);
+
+            if (!isValid) {
+                logger.warn("Hash mismatch - received: {}, generated: {} for hashData: {}", vnp_SecureHash, generatedHash, hashData);
+            }
+
+            return isValid;
+        } catch (Exception e) {
+            logger.error("Error verifying payment response", e);
+            return false;
+        }
+    }
+    // Hàm hỗ trợ HMAC SHA512
+    private String hmacSHA512(final String key, final String data) {
+        try {
+            if (key == null || data == null) {
+                return "";
+            }
+            final Mac hmac512 = Mac.getInstance("HmacSHA512");
+            byte[] hmacKeyBytes = key.getBytes(StandardCharsets.UTF_8);
+            final SecretKeySpec secretKey = new SecretKeySpec(hmacKeyBytes, "HmacSHA512");
+            hmac512.init(secretKey);
+            byte[] dataBytes = data.getBytes(StandardCharsets.UTF_8);
+            byte[] result = hmac512.doFinal(dataBytes);
+            StringBuilder sb = new StringBuilder(2 * result.length);
+            for (byte b : result) {
+                sb.append(String.format("%02x", b & 0xff));  // Use & 0xff for unsigned byte
+            }
+            return sb.toString().toLowerCase(Locale.ROOT);  // Explicit lowercase with Locale
+        } catch (Exception ex) {
+            logger.error("Error generating HMAC SHA512", ex);
+            return "";
+        }
+    }
+    
+    @Transactional
     public void processPaymentCallback(Map<String, String> params) {
-        UUID donThueId = UUID.fromString(params.get("vnp_TxnRef"));
-        DonThue donThue = donThueRepository.findById(donThueId)
-                .orElseThrow(() -> new IllegalArgumentException("DonThue not found: " + donThueId));
+        try {
+            UUID donThueId = UUID.fromString(params.get("vnp_TxnRef"));
+            logger.info("Processing callback for donThueId: {}, responseCode: {}", donThueId, params.get("vnp_ResponseCode"));
 
-        if (!"PENDING".equals(donThue.getTrangThai())) {
-            return;
+            DonThue donThue = donThueRepository.findById(donThueId)
+                    .orElseThrow(() -> new IllegalArgumentException("DonThue not found: " + donThueId));
+            logger.info("Found donThue with status: {}", donThue.getTrangThai());
+
+            if (!"PENDING".equals(donThue.getTrangThai())) {
+                logger.warn("Skipping process because not PENDING");
+                return;
+            }
+
+            List<ThanhToan> payments = thanhToanRepository.findByDonThueIdAndPhuongThuc(donThueId, "vnpay");
+            logger.info("Found {} thanhToan records", payments.size());
+            if (payments.isEmpty()) {
+                throw new IllegalArgumentException("ThanhToan not found for don_thue: " + donThueId);
+            }
+            ThanhToan thanhToan = payments.get(0);
+
+            String responseCode = params.get("vnp_ResponseCode");
+
+            if ("00".equals(responseCode)) {
+                donThue.setTrangThai("CONFIRMED");
+                thanhToan.setTrangThai("SUCCESS");
+                thanhToan.setThanhToanLuc(OffsetDateTime.now());
+
+                logger.info("Fetching xe for id: {}", donThue.getXe().getId());
+                Xe xe = xeRepository.findById(donThue.getXe().getId())
+                        .orElseThrow(() -> new IllegalArgumentException("Xe not found: " + donThue.getXe().getId()));
+                xe.setTrangThai("UNAVAILABLE");
+                logger.info("Saving xe");
+                xeRepository.save(xe);
+
+                logger.info("Handling viTriXe for xe: {}", xe.getId());
+                viTriXeRepository.findByXe(xe).orElseGet(() -> {  // SỬA: findByXe thay vì findById
+                    ViTriXe viTriXe = ViTriXe.builder()
+                            .xe(xe)  // SỬA: Thêm .xe(xe) để set xe_id
+                            // KHÔNG set .id() - để @UuidGenerator generate tự động
+                            .lat(0.0)
+                            .lng(0.0)
+                            .pin(100)
+                            .tocDo(0.0)
+                            .soKm(0.0)
+                            .capNhatLuc(ZonedDateTime.now())  // Thêm nếu cần
+                            .build();
+                    logger.info("Saving new viTriXe with generated ID");
+                    return viTriXeRepository.save(viTriXe);
+                });
+
+                logger.info("Handling chuyenDi");
+                chuyenDiRepository.findByDonThueId(donThue.getId()).orElseGet(() -> {
+                    ChuyenDi chuyenDi = ChuyenDi.builder()
+                            .donThueId(donThue.getId())
+                            .nguoiDungId(donThue.getNguoiDungId())
+                            .xeId(donThue.getXe().getId())
+                            .trangThai("PENDING")
+                            .batDauLuc(ZonedDateTime.now())
+                            .build();
+                    logger.info("Saving new chuyenDi");
+                    return chuyenDiRepository.save(chuyenDi);
+                });
+            } else {
+                donThue.setTrangThai("FAILED");
+                thanhToan.setTrangThai("FAILED");
+            }
+
+            logger.info("Saving donThue and thanhToan");
+            donThueRepository.save(donThue);
+            thanhToanRepository.save(thanhToan);
+        } catch (Exception e) {
+            logger.error("Exception in processPaymentCallback: {} - Stack: {}", e.getMessage(), e.getStackTrace());
+            throw e;  // Re-throw để catch ở controller
         }
-
-        List<ThanhToan> payments = thanhToanRepository.findByDonThueIdAndPhuongThuc(donThueId, "vnpay");
-        if (payments.isEmpty()) {
-            throw new IllegalArgumentException("ThanhToan not found for don_thue: " + donThueId);
-        }
-        ThanhToan thanhToan = payments.get(0);
-
-        String responseCode = params.get("vnp_ResponseCode");
-
-        if ("00".equals(responseCode)) {
-            donThue.setTrangThai("CONFIRMED");
-            thanhToan.setTrangThai("SUCCESS");
-            thanhToan.setThanhToanLuc(OffsetDateTime.now());
-
-            Xe xe = xeRepository.findById(donThue.getXe().getId())
-                    .orElseThrow(() -> new IllegalArgumentException("Xe not found: " + donThue.getXe().getId()));
-            xe.setTrangThai("UNAVAILABLE");
-            xeRepository.save(xe);
-
-            viTriXeRepository.findById(xe.getId()).orElseGet(() -> {
-                ViTriXe viTriXe = ViTriXe.builder()
-                        .id(xe.getId())
-                        .lat(0.0)
-                        .lng(0.0)
-                        .pin(100)
-                        .tocDo(0.0)
-                        .soKm(0.0)
-                        .build();
-                return viTriXeRepository.save(viTriXe);
-            });
-
-            chuyenDiRepository.findByDonThueId(donThue.getId()).orElseGet(() -> {
-                ChuyenDi chuyenDi = ChuyenDi.builder()
-                        .donThueId(donThue.getId())
-                        .nguoiDungId(donThue.getNguoiDungId())
-                        .xeId(donThue.getXe().getId())
-                        .trangThai("PENDING")
-                        .batDauLuc(ZonedDateTime.now())
-                        .build();
-                return chuyenDiRepository.save(chuyenDi);
-            });
-        } else {
-            donThue.setTrangThai("FAILED");
-            thanhToan.setTrangThai("FAILED");
-        }
-
-        donThueRepository.save(donThue);
-        thanhToanRepository.save(thanhToan);
     }
 
     private String buildQueryString(Map<String, String> params) throws UnsupportedEncodingException {
@@ -193,7 +280,7 @@ public class VNPayService {
                 if (hex.length() == 1) hexString.append('0');
                 hexString.append(hex);
             }
-            return hexString.toString();
+            return hexString.toString().toLowerCase(); // VNPAY dùng lowercase
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new IllegalStateException("Failed to generate secure hash", e);
         }

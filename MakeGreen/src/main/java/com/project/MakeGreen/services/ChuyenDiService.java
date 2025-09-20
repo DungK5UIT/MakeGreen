@@ -1,9 +1,15 @@
 package com.project.MakeGreen.services;
 
 import com.project.MakeGreen.models.ChuyenDi;
+import com.project.MakeGreen.models.DonThue;
+import com.project.MakeGreen.models.Tram;
+import com.project.MakeGreen.models.ViTriXe;
 import com.project.MakeGreen.models.Xe;
 import com.project.MakeGreen.repositories.ChuyenDiRepository;
+import com.project.MakeGreen.repositories.DonThueRepository;
 import com.project.MakeGreen.repositories.LichSuViTriRepository;
+import com.project.MakeGreen.repositories.TramRepository;
+import com.project.MakeGreen.repositories.ViTriXeRepository;
 import com.project.MakeGreen.repositories.XeRepository;
 
 import org.slf4j.Logger;
@@ -28,6 +34,15 @@ public class ChuyenDiService {
 
     @Autowired
     private XeRepository xeRepository;
+
+    @Autowired
+    private ViTriXeRepository viTriXeRepository;
+
+    @Autowired
+    private DonThueRepository donThueRepository;
+
+    @Autowired
+    private TramRepository tramRepository;
 
     /**
      * Hoàn tất chuyến đi
@@ -57,6 +72,28 @@ public class ChuyenDiService {
         xeRepository.save(xe);
 
         logger.info("Xe {} đã được cập nhật thành AVAILABLE sau khi kết thúc chuyến đi {}", xe.getId(), chuyenDi.getId());
+
+        // Lấy thông tin don_thue để lấy tram_tra
+        DonThue donThue = donThueRepository.findById(chuyenDi.getDonThueId())
+                .orElseThrow(() -> new RuntimeException("DonThue not found with id: " + chuyenDi.getDonThueId()));
+
+        // Lấy tram_tra
+        Tram tramTra = tramRepository.findById(donThue.getTramTra().getId())
+                .orElseThrow(() -> new RuntimeException("Tram tra not found with id: " + donThue.getTramTra().getId()));
+
+        // Cập nhật vi_tri_xe dựa trên tram_tra
+        ViTriXe viTriXe = viTriXeRepository.findByXe(xe)
+                .orElseThrow(() -> new RuntimeException("ViTriXe not found for xe: " + xe.getId()));
+
+        viTriXe.setLat(tramTra.getLat());
+        viTriXe.setLng(tramTra.getLng());
+        viTriXe.setPin(100);  // Giả sử pin đầy sau khi trả
+        viTriXe.setTocDo(0.0);
+        viTriXe.setSoKm(0.0);  // Reset số km hoặc giữ nguyên tùy logic
+        viTriXe.setCapNhatLuc(ZonedDateTime.now());
+        viTriXeRepository.save(viTriXe);
+
+        logger.info("ViTriXe đã được cập nhật từ don_thue's tram_tra cho xe {}", xe.getId());
 
         // Lưu lại thay đổi chuyến đi
         ChuyenDi updatedChuyenDi = chuyenDiRepository.save(chuyenDi);

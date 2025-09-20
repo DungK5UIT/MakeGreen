@@ -21,10 +21,6 @@ public class Xe {
     @Column(name = "bien_so", unique = true)
     private String bienSo;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dong_xe_id", nullable = false)
-    private DongXe dongXe;
-
     @Column(name = "trang_thai")
     private String trangThai;
 
@@ -33,13 +29,4 @@ public class Xe {
 
     @Column(name = "so_km")
     private Double soKm;
-
-    @Column(name = "lat_hien_tai")
-    private Double latHienTai;
-
-    @Column(name = "lng_hien_tai")
-    private Double lngHienTai;
-
-    @Column(name = "vung_id")
-    private UUID vungId;
 }

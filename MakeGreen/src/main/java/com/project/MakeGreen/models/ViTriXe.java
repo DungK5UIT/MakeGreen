@@ -40,4 +40,7 @@ public class ViTriXe {
 
     @Column(name = "cap_nhat_luc")
     private ZonedDateTime capNhatLuc;
+
+    @Version  // Thêm field này để enable optimistic locking explicitly
+    private Long version;
 }
