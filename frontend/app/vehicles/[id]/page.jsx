@@ -17,8 +17,8 @@ export default function VehicleDetail({ params }) {
         const { data, error } = await supabase
           .from('xe')
           .select('*')
-          .eq('id', params.id) // ✅ Dùng id thay vì slug
-          .single(); // ✅ Vì id là unique → .single() an toàn
+          .eq('id', params.id)
+          .single();
 
         if (error) throw error;
 
@@ -52,24 +52,46 @@ export default function VehicleDetail({ params }) {
   if (error) return <div className="text-center py-12 text-red-500">Lỗi: {error}</div>;
   if (!vehicle) return <div className="max-w-7xl mx-auto px-4 py-12">Không tìm thấy xe.</div>;
 
+  // Làm sạch URL ảnh
+  const cleanImageUrls = vehicle.image_urls?.map(url => url.trim()) || [];
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="grid lg:grid-cols-2 gap-12">
         {/* Gallery */}
         <div>
-          <div className="bg-gradient-to-br from-primary/20 to-secondary/20 rounded-2xl h-96 flex items-center justify-center mb-4 relative">
-            <svg className="w-32 h-32 text-primary" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
-            </svg>
+          <div className="rounded-2xl mb-4 relative overflow-hidden">
+            {cleanImageUrls[0] ? (
+              <img 
+                src={cleanImageUrls[0]} 
+                alt={vehicle.name}
+                className="w-full h-96 object-cover"
+              />
+            ) : (
+              <div className="bg-gradient-to-br from-primary/20 to-secondary/20 rounded-2xl h-96 flex items-center justify-center">
+                <svg className="w-32 h-32 text-primary" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
+                </svg>
+              </div>
+            )}
             <div className="absolute bottom-4 right-4 bg-white px-3 py-1 rounded-full text-sm font-medium">
               Pin: {vehicle.pin_phan_tram}% | {vehicle.so_km.toLocaleString()}km đã đi
             </div>
           </div>
           <div className="grid grid-cols-4 gap-2">
-            <div className="bg-neutral-200 rounded-lg h-20"></div>
-            <div className="bg-neutral-200 rounded-lg h-20"></div>
-            <div className="bg-neutral-200 rounded-lg h-20"></div>
-            <div className="bg-neutral-200 rounded-lg h-20"></div>
+            {cleanImageUrls.slice(1, 5).map((url, idx) => (
+              <div key={idx} className="rounded-lg overflow-hidden">
+                <img 
+                  src={url} 
+                  alt={`${vehicle.name} ${idx + 2}`}
+                  className="w-full h-20 object-cover hover:scale-105 transition-transform cursor-pointer"
+                />
+              </div>
+            ))}
+            {/* Hiển thị placeholder nếu không đủ 4 ảnh phụ */}
+            {Array.from({ length: Math.max(0, 4 - (cleanImageUrls.length - 1)) }).map((_, idx) => (
+              <div key={`empty-${idx}`} className="bg-neutral-200 rounded-lg h-20"></div>
+            ))}
           </div>
         </div>
 

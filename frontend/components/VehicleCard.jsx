@@ -6,12 +6,25 @@ import Link from "next/link";
 export default function VehicleCard({ vehicle }) {
   if (!vehicle) return null;
 
+  // Lấy ảnh đầu tiên, loại bỏ khoảng trắng thừa
+  const firstImageUrl = vehicle.image_urls?.[0]?.trim();
+
   return (
     <div className="bg-white rounded-2xl card-shadow overflow-hidden">
-      <div className="h-48 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-        <svg className="w-24 h-24 text-primary" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
-        </svg>
+      <div className="h-48 overflow-hidden">
+        {firstImageUrl ? (
+          <img 
+            src={firstImageUrl} 
+            alt={vehicle.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+            <svg className="w-24 h-24 text-primary" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
+            </svg>
+          </div>
+        )}
       </div>
       <div className="p-6">
         <div className="flex items-center justify-between mb-2">

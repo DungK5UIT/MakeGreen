@@ -547,16 +547,75 @@ export default function TripTrackingPage() {
   }, []);
 
   // Hàm bắt đầu chuyến đi
-  const startTrip = () => {
-    if (isTripStarted) {
-      logMessage('info', 'Trip already started', { chuyenDiId: tripData.chuyen_di_id });
-      alert('Chuyến đi đã được bắt đầu!');
-      return;
+const startTrip = async () => {
+  if (isTripStarted) {
+    logMessage('info', 'Trip already started', { chuyenDiId: tripData.chuyen_di_id });
+    alert('Chuyến đi đã được bắt đầu!');
+    return;
+  }
+
+  if (!tripData.tram_thue_position) {
+    logMessage('error', 'No tram_thue_position to reset', {});
+    alert('Không có vị trí trạm thuê để bắt đầu!');
+    return;
+  }
+
+  // Reset vi_tri_xe về tram_thue_position
+  const resetPosition = tripData.tram_thue_position;
+  try {
+    const { error: updateError } = await supabase
+      .from('vi_tri_xe')
+      .update({
+        lat: resetPosition[0],
+        lng: resetPosition[1],
+        pin: 100,  // Optional: reset pin nếu cần
+        toc_do: 0,
+        so_km: 0,  // Reset distance
+        cap_nhat_luc: new Date().toISOString(),
+      })
+      .eq('xe_id', tripData.xe_id);
+
+    if (updateError) throw updateError;
+
+    // Insert lich_su_vi_tri đầu tiên nếu chưa có
+    const { data: existingLichSu } = await supabase
+      .from('lich_su_vi_tri')
+      .select('*')
+      .eq('chuyen_di_id', tripData.chuyen_di_id)
+      .limit(1);
+
+    if (!existingLichSu || existingLichSu.length === 0) {
+      await supabase
+        .from('lich_su_vi_tri')
+        .insert({
+          chuyen_di_id: tripData.chuyen_di_id,
+          lat: resetPosition[0],
+          lng: resetPosition[1],
+          pin: 100,
+          toc_do: 0,
+          so_km: 0,
+        });
     }
+
+    // Cập nhật state local để bản đồ refresh
+    setTripData(prev => ({
+      ...prev,
+      position: resetPosition,
+      distance: 0,
+      battery: 100,
+      speed: 0,
+      remainingKm: prev.range_km,
+    }));
+    setPath([resetPosition]);  // Reset path về chỉ cờ xanh
+
     setIsTripStarted(true);
-    logMessage('success', 'Trip started', { chuyenDiId: tripData.chuyen_di_id });
-    alert('Chuyến đi đã bắt đầu!');
-  };
+    logMessage('success', 'Trip started and position reset to tram_thue', { position: resetPosition });
+    alert('Chuyến đi đã bắt đầu! Vị trí xe đã reset về trạm thuê.');
+  } catch (error) {
+    logMessage('error', 'Failed to reset position and start trip', { error });
+    alert('Lỗi khi bắt đầu chuyến đi. Vui lòng thử lại.');
+  }
+};
 
   // Mô phỏng dữ liệu - chỉ chạy khi chuyến đi đã bắt đầu
   useEffect(() => {

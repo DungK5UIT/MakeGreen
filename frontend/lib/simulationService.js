@@ -32,26 +32,88 @@ export const startSimulation = async (chuyenDiId, xeId, tramThuePosition, tramTr
     .eq('xe_id', xeId)
     .single();
 
-  if (!viTriData) {
+  // Luôn reset vị trí về tramThuePosition để đảm bảo bắt đầu từ cờ xanh
+  const resetPosition = tramThuePosition;
+  const resetBattery = 100;
+  const resetDistance = 0;
+  const resetSpeed = 0;
+
+  if (viTriData) {
+    // Update nếu đã tồn tại
+    const { error: updateError } = await supabase
+      .from('vi_tri_xe')
+      .update({
+        lat: resetPosition[0],
+        lng: resetPosition[1],
+        pin: resetBattery,
+        toc_do: resetSpeed,
+        so_km: resetDistance,
+        cap_nhat_luc: new Date().toISOString(),
+      })
+      .eq('xe_id', xeId);
+
+    if (updateError) {
+      console.error('Failed to reset vi_tri_xe:', updateError);
+      return; // Dừng nếu lỗi
+    }
+
+    viTriData = {
+      ...viTriData,
+      lat: resetPosition[0],
+      lng: resetPosition[1],
+      pin: resetBattery,
+      toc_do: resetSpeed,
+      so_km: resetDistance,
+    };
+    console.log('Reset vi_tri_xe to tram_thue_position:', resetPosition);
+  } else {
+    // Insert nếu chưa tồn tại
     console.error('No vi_tri_xe found, initializing with tram_thue_position');
-    const { data: insertedViTri } = await supabase
+    const { data: insertedViTri, error: insertError } = await supabase
       .from('vi_tri_xe')
       .insert({
         xe_id: xeId,
-        lat: tramThuePosition[0],
-        lng: tramThuePosition[1],
-        pin: 100,
-        toc_do: 0,
-        so_km: 0,
+        lat: resetPosition[0],
+        lng: resetPosition[1],
+        pin: resetBattery,
+        toc_do: resetSpeed,
+        so_km: resetDistance,
       })
       .select()
       .single();
+
+    if (insertError) {
+      console.error('Failed to insert vi_tri_xe:', insertError);
+      return; // Dừng nếu lỗi
+    }
+
     viTriData = insertedViTri;
   }
 
-  let currentDistance = viTriData.so_km || 0;
-  let currentBattery = viTriData.pin || 100;
-  let currentPosition = [viTriData.lat || tramThuePosition[0], viTriData.lng || tramThuePosition[1]];
+  let currentDistance = resetDistance;
+  let currentBattery = resetBattery;
+  let currentPosition = [resetPosition[0], resetPosition[1]];
+
+  // Insert lịch sử vị trí đầu tiên nếu cần (để path bắt đầu từ cờ xanh)
+  const { data: existingLichSu } = await supabase
+    .from('lich_su_vi_tri')
+    .select('*')
+    .eq('chuyen_di_id', chuyenDiId)
+    .limit(1);
+
+  if (!existingLichSu || existingLichSu.length === 0) {
+    await supabase
+      .from('lich_su_vi_tri')
+      .insert({
+        chuyen_di_id: chuyenDiId,
+        lat: currentPosition[0],
+        lng: currentPosition[1],
+        pin: Math.round(currentBattery),
+        toc_do: resetSpeed,
+        so_km: parseFloat(currentDistance.toFixed(1)),
+      });
+    console.log('Inserted initial lich_su_vi_tri at tram_thue_position');
+  }
 
   simulationInterval = setInterval(async () => {
     const { data: chuyenDi } = await supabase
