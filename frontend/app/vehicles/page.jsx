@@ -23,29 +23,40 @@ export default function VehiclesPage() {
           .from('xe')
           .select('*');
 
-        // Áp dụng bộ lọc
+        // Áp dụng bộ lọc tìm kiếm
         if (filters.search) {
           query = query.ilike('name', `%${filters.search}%`);
         }
 
+        // Áp dụng bộ lọc giá
         if (filters.price !== 'Tất cả') {
-          // Chuyển price từ string sang number để so sánh
-          query = query.order('price', { ascending: true }); // để đảm bảo Supabase cast đúng
-          if (filters.price === 'Dưới 100k') query = query.lte('price::numeric', 100000);
-          else if (filters.price === '100k - 150k') query = query.gte('price::numeric', 100000).lte('price::numeric', 150000);
-          else if (filters.price === 'Trên 150k') query = query.gt('price::numeric', 150000);
+          if (filters.price === 'Dưới 100k') {
+            query = query.lte('price', 100000);
+          } else if (filters.price === '100k - 150k') {
+            query = query.gte('price', 100000).lte('price', 150000);
+          } else if (filters.price === 'Trên 150k') {
+            query = query.gt('price', 150000);
+          }
         }
 
+        // Áp dụng bộ lọc tầm hoạt động
         if (filters.range !== 'Tất cả') {
-          // range_km cũng là string → ép kiểu
-          if (filters.range === 'Dưới 80km') query = query.lte('range_km::numeric', 80);
-          else if (filters.range === '80-120km') query = query.gte('range_km::numeric', 80).lte('range_km::numeric', 120);
-          else if (filters.range === 'Trên 120km') query = query.gt('range_km::numeric', 120);
+          if (filters.range === 'Dưới 80km') {
+            query = query.lte('range_km', 80);
+          } else if (filters.range === '80-120km') {
+            query = query.gte('range_km', 80).lte('range_km', 120);
+          } else if (filters.range === 'Trên 120km') {
+            query = query.gt('range_km', 120);
+          }
         }
 
+        // Áp dụng bộ lọc pin
         if (filters.battery !== 'Tất cả') {
           query = query.eq('battery', filters.battery);
         }
+
+        // Sắp xếp theo giá
+        query = query.order('price', { ascending: true });
 
         const { data, error } = await query;
         if (error) throw error;
@@ -80,6 +91,15 @@ export default function VehiclesPage() {
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleResetFilters = () => {
+    setFilters({
+      search: '',
+      price: 'Tất cả',
+      range: 'Tất cả',
+      battery: 'Tất cả'
+    });
+  };
+
   if (loading) return <div className="text-center py-12">Đang tải...</div>;
   if (error) return <div className="text-center py-12 text-red-500">Lỗi: {error}</div>;
 
@@ -93,6 +113,7 @@ export default function VehiclesPage() {
             <input 
               type="text" 
               name="search"
+              value={filters.search}
               placeholder="Tên xe, hãng..." 
               className="w-full px-4 py-2 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent" 
               onChange={handleFilterChange}
@@ -102,6 +123,7 @@ export default function VehiclesPage() {
             <label className="block text-sm font-medium text-neutral-700 mb-2">Giá/Ngày</label>
             <select 
               name="price"
+              value={filters.price}
               className="w-full px-4 py-2 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
               onChange={handleFilterChange}
             >
@@ -115,6 +137,7 @@ export default function VehiclesPage() {
             <label className="block text-sm font-medium text-neutral-700 mb-2">Tầm hoạt động</label>
             <select 
               name="range"
+              value={filters.range}
               className="w-full px-4 py-2 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
               onChange={handleFilterChange}
             >
@@ -128,6 +151,7 @@ export default function VehiclesPage() {
             <label className="block text-sm font-medium text-neutral-700 mb-2">Pin</label>
             <select 
               name="battery"
+              value={filters.battery}
               className="w-full px-4 py-2 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
               onChange={handleFilterChange}
             >
@@ -136,6 +160,15 @@ export default function VehiclesPage() {
               <option>Pin cố định</option>
             </select>
           </div>
+        </div>
+        {/* Nút Reset */}
+        <div className="mt-4 flex justify-end">
+          <button 
+            onClick={handleResetFilters}
+            className="px-4 py-2 bg-primary text-white rounded-xl hover:bg-primary-dark transition"
+          >
+            Reset bộ lọc
+          </button>
         </div>
       </div>
 
