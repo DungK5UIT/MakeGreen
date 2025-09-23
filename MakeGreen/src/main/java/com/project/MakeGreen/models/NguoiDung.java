@@ -16,8 +16,13 @@ public class NguoiDung {
   private String email;
   private String sdt;
   private String hoTen;
-  private String trang_thai;
-  private OffsetDateTime ngay_tao;
+  
+  @Column(name = "trang_thai")
+  private String trangThai;
+  
+  @Column(name = "ngay_tao")
+  private OffsetDateTime ngayTao;
+  
   private Boolean enabled;
   
   @ManyToMany(fetch = FetchType.EAGER)
@@ -30,6 +35,6 @@ public class NguoiDung {
 
   @PrePersist
   protected void onCreate() {
-      this.ngay_tao = OffsetDateTime.now();
+      this.ngayTao = OffsetDateTime.now();
   }
 }

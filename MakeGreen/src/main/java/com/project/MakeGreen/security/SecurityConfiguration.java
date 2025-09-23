@@ -12,7 +12,6 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
-import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -26,8 +25,13 @@ public class SecurityConfiguration {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/signup", "/api/auth/refresh-token", "/api/auth/logout").permitAll()
                 .requestMatchers(HttpMethod.GET, "/actuator/health", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/pay/vnpay/initiate").permitAll()  // Cho phép public, dùng controller check auth
-                .requestMatchers(HttpMethod.GET, "/api/pay/vnpay/callback").permitAll()  // Cho phép callback từ VNPay
+                .requestMatchers(HttpMethod.POST, "/api/pay/vnpay/initiate").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/pay/vnpay/callback").permitAll()
+                // Cho phép tất cả các phương thức GET, POST, PUT, DELETE tới /api/xe một cách công khai
+                .requestMatchers("/api/xe/**").permitAll() 
+                .requestMatchers("/api/chuyen-di/**").permitAll() 
+                .requestMatchers("/api/su-co/**").permitAll() 
+                .requestMatchers("/api/nguoidung/**").permitAll() 
                 .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
                 .requestMatchers("/api/user/**").hasAnyAuthority("USER", "ADMIN")
                 .anyRequest().authenticated()

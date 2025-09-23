@@ -29,7 +29,7 @@ public class AuthService {
                 NguoiDung newUser = new NguoiDung();
                 newUser.setId(UUID.fromString(tokens.getUserId()));
                 newUser.setEmail(tokens.getEmail());
-                newUser.setTrang_thai("ACTIVE");
+                newUser.setTrangThai("ACTIVE");
                 newUser.setEnabled(true);
                 VaiTro userRole = vaiTroRepository.findByMa("USER")
                     .orElseGet(() -> {
@@ -42,8 +42,8 @@ public class AuthService {
                 return nguoiDungRepository.save(newUser);
             });
 
-        if (!"ACTIVE".equals(user.getTrang_thai())) {
-            user.setTrang_thai("ACTIVE");
+        if (!"ACTIVE".equals(user.getTrangThai())) {
+            user.setTrangThai("ACTIVE");
             nguoiDungRepository.save(user);
         }
 
@@ -73,7 +73,7 @@ public class AuthService {
                 newUser.setId(UUID.fromString(tokens.getUserId()));
                 newUser.setEmail(tokens.getEmail());
                 newUser.setHoTen(req.getFullName());
-                newUser.setTrang_thai("ACTIVE");
+                newUser.setTrangThai("ACTIVE");
                 newUser.setEnabled(true);
                 VaiTro userRole = vaiTroRepository.findByMa("USER")
                     .orElseGet(() -> {
@@ -104,8 +104,8 @@ public class AuthService {
         NguoiDung user = nguoiDungRepository.findById(UUID.fromString(tokens.getUserId()))
             .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (!"ACTIVE".equals(user.getTrang_thai())) {
-            user.setTrang_thai("ACTIVE");
+        if (!"ACTIVE".equals(user.getTrangThai())) {
+            user.setTrangThai("ACTIVE");
             nguoiDungRepository.save(user);
         }
 
@@ -125,7 +125,7 @@ public class AuthService {
     public void logout(String userId, String accessToken) {
         NguoiDung user = nguoiDungRepository.findById(UUID.fromString(userId))
             .orElseThrow(() -> new RuntimeException("User not found"));
-        user.setTrang_thai("INACTIVE");
+        user.setTrangThai("INACTIVE");
         nguoiDungRepository.save(user);
         supabaseAuthClient.signOut(accessToken);
     }
