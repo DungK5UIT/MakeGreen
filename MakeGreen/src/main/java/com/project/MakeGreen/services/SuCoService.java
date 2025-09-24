@@ -29,7 +29,7 @@ public class SuCoService {
     private XeRepository xeRepository;
 
     @Autowired
-    private NguoiDungRepository nguoiDungRepository;  // Thêm nếu cần load nguoiBaoCao
+    private NguoiDungRepository nguoiDungRepository;
 
     // Create: Ghi sự cố mới
     @Transactional
@@ -48,6 +48,7 @@ public class SuCoService {
                 .nguoiBaoCao(nguoiBaoCao)
                 .mucDo(mucDo)
                 .moTa(moTa)
+                .trangThai("CHUAXULY") // Đặt trạng thái mặc định khi tạo mới
                 .build();
 
         SuCo savedSuCo = suCoRepository.save(suCo);
@@ -78,8 +79,13 @@ public class SuCoService {
         if (moTa != null) {
             suCo.setMoTa(moTa);
         }
-        if (daXuLy != null && daXuLy) {
-            suCo.setXuLyLuc(ZonedDateTime.now());
+        if (daXuLy != null) {
+            suCo.setTrangThai(daXuLy ? "DAXULY" : "CHUAXULY");
+            if (daXuLy && suCo.getXuLyLuc() == null) {
+                suCo.setXuLyLuc(ZonedDateTime.now()); // Cập nhật thời gian xử lý nếu chuyển sang DAXULY
+            } else if (!daXuLy) {
+                suCo.setXuLyLuc(null); // Xóa thời gian xử lý nếu chuyển về CHUAXULY
+            }
         }
 
         SuCo updatedSuCo = suCoRepository.save(suCo);

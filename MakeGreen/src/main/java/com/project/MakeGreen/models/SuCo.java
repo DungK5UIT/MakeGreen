@@ -38,4 +38,7 @@ public class SuCo {
 
     @Column(name = "xu_ly_luc")
     private ZonedDateTime xuLyLuc;
+    
+    @Column(name = "trang_thai")
+    private String trangThai;
 }

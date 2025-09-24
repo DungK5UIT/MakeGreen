@@ -1,8 +1,12 @@
+// Sửa đổi XeDto.java để thêm danh sách bảo trì nếu cần (tùy chọn, để tránh cycle nếu không cần thiết)
 package com.project.MakeGreen.dtos;
 
 import com.project.MakeGreen.models.Xe;
 import lombok.Data;
+
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Data
 public class XeDto {
@@ -24,6 +28,9 @@ public class XeDto {
     private Integer weightKg;
     private Integer dungLuongPinWh;
     private Double pinTieuThuPerKm;
+
+    // Thêm danh sách bảo trì DTO nếu cần
+    private List<BaoTriDto> baoTris;
 
     public static XeDto from(Xe xe) {
         if (xe == null) {
@@ -49,6 +56,12 @@ public class XeDto {
         dto.setWeightKg(xe.getWeightKg());
         dto.setDungLuongPinWh(xe.getDungLuongPinWh());
         dto.setPinTieuThuPerKm(xe.getPinTieuThuPerKm());
+
+        // Thêm bảo trì nếu cần
+        if (xe.getBaoTris() != null) {
+            dto.setBaoTris(xe.getBaoTris().stream().map(BaoTriDto::from).collect(Collectors.toList()));
+        }
+
         return dto;
     }
 }

@@ -13,13 +13,8 @@ const sections = [
   { href: '/admin/nguoidung', key: 'nguoi_dung', label: 'Người dùng', icon: <FaUsers className="w-5" /> },
   { href: '/admin/donthue', key: 'don_thue', label: 'Đơn thuê', icon: <FaFileContract className="w-5" /> },
   { href: '/admin/chuyendi', key: 'chuyen_di', label: 'Chuyến đi', icon: <FaRoute className="w-5" /> },
-  { href: '/admin/khuyenmai', key: 'khuyen_mai', label: 'Khuyến mãi', icon: <FaPercent className="w-5" /> },
-  { href: '/admin/tram', key: 'tram', label: 'Trạm', icon: <FaMapMarkerAlt className="w-5" /> },
   { href: '/admin/baotri', key: 'bao_tri', label: 'Bảo trì', icon: <FaTools className="w-5" /> },
   { href: '/admin/suco', key: 'su_co', label: 'Sự cố', icon: <FaExclamationTriangle className="w-5" /> },
-  { href: '/admin/danhgia', key: 'danh_gia', label: 'Đánh giá', icon: <FaStar className="w-5" /> },
-  { href: '/admin/vaitro', key: 'vai_tro', label: 'Vai trò', icon: <FaUsers className="w-5" /> },
-  { href: '/admin/debug_log', key: 'debug_log', label: 'Nhật ký hệ thống', icon: <FaHistory className="w-5" /> },
 ];
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }) {

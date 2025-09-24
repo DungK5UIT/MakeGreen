@@ -147,8 +147,6 @@ export default function AccountPage() {
             <nav className="space-y-2">
               {navItem("profile", "Hồ sơ & eKYC")}
               {navItem("invoices", "Hóa đơn")}
-              {navItem("favorites", "Yêu thích")}
-              {navItem("payment", "Thanh toán")}
             </nav>
             {/* Logout button */}
             <div className="mt-6">

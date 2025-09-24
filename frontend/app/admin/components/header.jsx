@@ -18,7 +18,7 @@ export default function Header({ theme, setTheme, setSidebarOpen }) {
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <FaBolt className="text-white text-sm" />
             </div>
-            <h1 className="text-xl font-bold text-gray-800 dark:text-white">EV Rental Admin</h1>
+            <h1 className="text-xl font-bold text-gray-800 dark:text-white">MakeGreen Admin</h1>
           </div>
         </div>
         <div className="flex items-center space-x-4">

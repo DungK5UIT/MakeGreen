@@ -1,6 +1,6 @@
 package com.project.MakeGreen.controllers;
 
-import com.project.MakeGreen.dtos.SuCoDto; // ← Thêm import này
+import com.project.MakeGreen.dtos.SuCoDto;
 import com.project.MakeGreen.dtos.responses.ErrorResponse;
 import com.project.MakeGreen.models.SuCo;
 import com.project.MakeGreen.services.SuCoService;
@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors; // ← Thêm import này
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -23,7 +23,7 @@ public class SuCoController {
     @Autowired
     private SuCoService suCoService;
 
-    // Create: Ghi sự cố mới → vẫn trả SuCo (hoặc có thể trả SuCoDto nếu muốn)
+    // Create: Ghi sự cố mới
     @PostMapping
     public ResponseEntity<?> ghiSuCo(
             @RequestParam UUID xeId,
@@ -33,9 +33,9 @@ public class SuCoController {
         try {
             log.info("Ghi su_co cho xeId: {}", xeId);
             SuCo suCo = suCoService.ghiSuCo(xeId, nguoiBaoCaoId, mucDo, moTa);
-            SuCoDto dto = SuCoDto.from(suCo); // ← Chuyển sang DTO
+            SuCoDto dto = SuCoDto.from(suCo);
             log.info("Successfully ghi su_co: {}", suCo.getId());
-            return ResponseEntity.ok(dto); // ← Trả DTO
+            return ResponseEntity.ok(dto);
         } catch (RuntimeException e) {
             log.error("Error ghi su_co for xeId {}: {}", xeId, e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -45,13 +45,13 @@ public class SuCoController {
 
     // Read: Lấy tất cả sự cố
     @GetMapping
-    public ResponseEntity<List<SuCoDto>> layTatCaSuCo() { // ← Đổi kiểu trả về
+    public ResponseEntity<List<SuCoDto>> layTatCaSuCo() {
         log.info("Lay tat ca su_co");
         List<SuCo> suCos = suCoService.layTatCaSuCo();
         List<SuCoDto> dtos = suCos.stream()
                 .map(SuCoDto::from)
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(dtos); // ← Trả List DTO
+        return ResponseEntity.ok(dtos);
     }
 
     // Read: Lấy sự cố theo ID
@@ -60,8 +60,8 @@ public class SuCoController {
         log.info("Lay su_co theo id: {}", id);
         Optional<SuCo> optionalSuCo = suCoService.laySuCoTheoId(id);
         if (optionalSuCo.isPresent()) {
-            SuCoDto dto = SuCoDto.from(optionalSuCo.get()); // ← Chuyển sang DTO
-            return ResponseEntity.ok(dto); // ← Trả DTO
+            SuCoDto dto = SuCoDto.from(optionalSuCo.get());
+            return ResponseEntity.ok(dto);
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ErrorResponse("Su co not found with id: " + id, HttpStatus.NOT_FOUND.value()));
@@ -78,9 +78,9 @@ public class SuCoController {
         try {
             log.info("Cap nhat su_co id: {}", id);
             SuCo updatedSuCo = suCoService.capNhatSuCo(id, mucDo, moTa, daXuLy);
-            SuCoDto dto = SuCoDto.from(updatedSuCo); // ← Chuyển sang DTO
+            SuCoDto dto = SuCoDto.from(updatedSuCo);
             log.info("Successfully cap nhat su_co: {}", updatedSuCo.getId());
-            return ResponseEntity.ok(dto); // ← Trả DTO
+            return ResponseEntity.ok(dto);
         } catch (RuntimeException e) {
             log.error("Error cap nhat su_co id {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -88,7 +88,7 @@ public class SuCoController {
         }
     }
 
-    // Delete: Xóa sự cố theo ID → không cần DTO
+    // Delete: Xóa sự cố theo ID
     @DeleteMapping("/{id}")
     public ResponseEntity<?> xoaSuCo(@PathVariable UUID id) {
         try {

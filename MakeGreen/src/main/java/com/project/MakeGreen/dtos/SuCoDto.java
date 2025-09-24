@@ -15,6 +15,7 @@ public class SuCoDto {
     private String moTa;
     private ZonedDateTime taoLuc;
     private ZonedDateTime xuLyLuc;
+    private String trangThai; // Thêm trường trangThai
 
     public static SuCoDto from(SuCo suCo) {
         if (suCo == null) {
@@ -29,6 +30,7 @@ public class SuCoDto {
         dto.setMoTa(suCo.getMoTa());
         dto.setTaoLuc(suCo.getTaoLuc());
         dto.setXuLyLuc(suCo.getXuLyLuc());
+        dto.setTrangThai(suCo.getTrangThai()); // Ánh xạ trangThai
         return dto;
     }
 }

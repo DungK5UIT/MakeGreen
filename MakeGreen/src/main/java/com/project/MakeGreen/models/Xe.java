@@ -1,9 +1,12 @@
+// Sửa đổi Xe.java để thêm quan hệ OneToMany với BaoTri (nếu cần thiết, để hỗ trợ truy vấn hai chiều)
 package com.project.MakeGreen.models;
 
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -68,4 +71,8 @@ public class Xe {
 
     @Column(name = "pin_tieu_thu_per_km")
     private Double pinTieuThuPerKm;
+
+    // Thêm quan hệ OneToMany với BaoTri
+    @OneToMany(mappedBy = "xe", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<BaoTri> baoTris = new ArrayList<>();
 }

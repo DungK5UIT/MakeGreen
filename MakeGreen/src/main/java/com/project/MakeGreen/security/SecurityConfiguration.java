@@ -32,6 +32,8 @@ public class SecurityConfiguration {
                 .requestMatchers("/api/chuyen-di/**").permitAll() 
                 .requestMatchers("/api/su-co/**").permitAll() 
                 .requestMatchers("/api/nguoidung/**").permitAll() 
+                .requestMatchers("/api/donthue/**").permitAll() 
+                .requestMatchers("/api/bao-tri/**").permitAll() 
                 .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
                 .requestMatchers("/api/user/**").hasAnyAuthority("USER", "ADMIN")
                 .anyRequest().authenticated()
