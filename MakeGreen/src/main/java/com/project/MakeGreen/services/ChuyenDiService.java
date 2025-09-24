@@ -134,10 +134,16 @@ public class ChuyenDiService {
             throw new RuntimeException("ChuyenDi already completed");
         }
 
+        // Lấy thông tin don_thue để lấy chi_phi_uoc_tinh và tram_tra
+        DonThue donThue = donThueRepository.findById(chuyenDi.getDonThueId())
+                .orElseThrow(() -> new RuntimeException("DonThue not found with id: " + chuyenDi.getDonThueId()));
+
         // Cập nhật thông tin chuyến đi
         chuyenDi.setTrangThai("COMPLETED");
         chuyenDi.setKetThucLuc(ZonedDateTime.now());
         chuyenDi.setPath(path);
+        chuyenDi.setTongChiPhi(donThue.getChiPhiUocTinh() != null ? donThue.getChiPhiUocTinh().doubleValue() : null);
+        logger.info("Tong chi phi lay tu don_thue: {} cho chuyenDiId: {}", chuyenDi.getTongChiPhi(), chuyenDiId);
 
         // Cập nhật trạng thái xe về AVAILABLE
         Xe xe = xeRepository.findById(chuyenDi.getXeId())
@@ -146,10 +152,6 @@ public class ChuyenDiService {
         xeRepository.save(xe);
 
         logger.info("Xe {} đã được cập nhật thành AVAILABLE sau khi kết thúc chuyến đi {}", xe.getId(), chuyenDi.getId());
-
-        // Lấy thông tin don_thue để lấy tram_tra
-        DonThue donThue = donThueRepository.findById(chuyenDi.getDonThueId())
-                .orElseThrow(() -> new RuntimeException("DonThue not found with id: " + chuyenDi.getDonThueId()));
 
         // Lấy tram_tra
         Tram tramTra = tramRepository.findById(donThue.getTramTra().getId())

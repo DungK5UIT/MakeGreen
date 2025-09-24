@@ -135,12 +135,24 @@ export default function TripTrackingPage() {
   // Fallback function để hoàn thành chuyến đi bằng Supabase nếu API không hoạt động
   const completeTripWithSupabase = async (chuyenDiId, pathData) => {
     try {
+      // Fetch chi_phi_uoc_tinh from don_thue
+      const { data: donThueData, error: donThueError } = await supabase
+        .from('don_thue')
+        .select('chi_phi_uoc_tinh')
+        .eq('id', tripData.don_thue_id)  // Assuming tripData has don_thue_id
+        .single();
+
+      if (donThueError || !donThueData) throw donThueError || new Error('DonThue not found');
+
+      const tongChiPhi = donThueData.chi_phi_uoc_tinh;
+
       const { error: updateError } = await supabase
         .from('chuyen_di')
         .update({
           trang_thai: 'COMPLETED',
           ket_thuc_luc: new Date().toISOString(),
           path: JSON.stringify(pathData),
+          tong_chi_phi: tongChiPhi,
         })
         .eq('id', chuyenDiId);
 
@@ -295,13 +307,13 @@ export default function TripTrackingPage() {
 
       const { data: chuyenDiData, error: chuyenError } = await supabase
         .from('chuyen_di')
-        .select('*, don_thue!chuyen_di_don_thue_id_fkey(tram_thue_id, tram_tra_id)')
+        .select('*, don_thue!chuyen_di_don_thue_id_fkey(tram_thue_id, tram_tra_id, chi_phi_uoc_tinh)')
         .eq('nguoi_dung_id', user.id)
         .eq('trang_thai', 'PENDING')
         .single();
 
       if (chuyenError || !chuyenDiData) {
-        logMessage('error', 'No pending chuyen_di found', { error: chuyenError });
+        logMessage('error', 'No pending chuyen_di found or error', { error: chuyenError });
         setNoTrip(true);
         setLoading(false);
         return;
@@ -318,19 +330,20 @@ export default function TripTrackingPage() {
         xe_id: chuyenDiData.xe_id,
         nguoi_dung_id: user.id,
         startTime: formattedStartTime,
+        don_thue_id: chuyenDiData.don_thue_id,
       }));
 
       const { data: xeData, error: xeError } = await supabase
         .from('xe')
-        .select('name, bien_so, pin_tieu_thu_per_km, range_km')
+        .select('ten, bien_so, pin_tieu_thu_per_km, range_km')
         .eq('id', chuyenDiData.xe_id)
         .single();
 
       if (!xeError && xeData) {
-        logMessage('success', 'Fetched vehicle data', { xeId: chuyenDiData.xe_id, name: xeData.name });
+        logMessage('success', 'Fetched vehicle data', { xeId: chuyenDiData.xe_id, name: xeData.ten });
         setTripData(prev => ({
           ...prev,
-          vehicleName: xeData.name || 'Xe Vision',
+          vehicleName: xeData.ten || 'Xe Vision',
           licensePlate: xeData.bien_so || '51F-123.45',
           pin_tieu_thu_per_km: xeData.pin_tieu_thu_per_km || 15,
           range_km: xeData.range_km || 100,
@@ -379,66 +392,52 @@ export default function TripTrackingPage() {
         totalDistance,
       }));
 
-      let viTriData;
-      const { data: existingViTri, error: viTriError } = await supabase
-        .from('vi_tri_xe')
-        .select('*')
-        .eq('xe_id', chuyenDiData.xe_id)
-        .single();
-
-      if (viTriError || !existingViTri) {
-        if (!tramThuePosition) {
-          logMessage('error', 'No tram_thue_position for default vi_tri_xe', {});
-          setNoTrip(true);
-          setLoading(false);
-          return;
-        }
-        const { data: insertedViTri, error: insertError } = await supabase
+      // Luôn set vị trí xe mặc định là tram_thue khi load trang
+      if (tramThuePosition) {
+        const { data: viTriData, error: viTriError } = await supabase
           .from('vi_tri_xe')
-          .insert({
+          .upsert({
             xe_id: chuyenDiData.xe_id,
             lat: tramThuePosition[0],
             lng: tramThuePosition[1],
             pin: 100,
             toc_do: 0,
             so_km: 0,
-          })
+            cap_nhat_luc: new Date().toISOString(),
+          }, { onConflict: 'xe_id' })  // Giả sử unique constraint trên xe_id
           .select()
           .single();
 
-        if (insertError || !insertedViTri) {
-          logMessage('error', 'Failed to insert vi_tri_xe', { error: insertError });
+        if (viTriError) {
+          logMessage('error', 'Failed to upsert vi_tri_xe to tram_thue', { error: viTriError });
           setNoTrip(true);
           setLoading(false);
           return;
         }
-        viTriData = insertedViTri;
-        logMessage('success', 'Inserted default vi_tri_xe', { viTriData });
+
+        const currentPosition = [viTriData.lat, viTriData.lng];
+        const currentRangeKm = xeData?.range_km || 100;
+        const remainingKm = Math.round(((viTriData.pin || 100) / 100) * currentRangeKm);
+
+        setTripData(prev => ({
+          ...prev,
+          position: currentPosition,
+          battery: viTriData.pin || 100,
+          speed: viTriData.toc_do || 0,
+          distance: viTriData.so_km || 0,
+          remainingKm,
+          range_km: currentRangeKm,
+        }));
+
+        logMessage('success', 'Set default vi_tri_xe to tram_thue', { viTriData });
       } else {
-        viTriData = existingViTri;
-        logMessage('success', 'Fetched existing vi_tri_xe', { viTriData });
+        logMessage('error', 'No tram_thue_position available', {});
+        setNoTrip(true);
+        setLoading(false);
+        return;
       }
 
-      const currentPosition = [viTriData.lat || 21.0285, viTriData.lng || 105.8412];
-      const currentRangeKm = xeData?.range_km || 100;
-      const remainingKm = Math.round(((viTriData.pin || 100) / 100) * currentRangeKm);
-
-      setTripData(prev => ({
-        ...prev,
-        position: currentPosition,
-        battery: viTriData.pin || 100,
-        speed: viTriData.toc_do || 0,
-        distance: viTriData.so_km || 0,
-        remainingKm,
-        range_km: currentRangeKm,
-      }));
-
-      logMessage('success', 'Initial trip data set', {
-        distance: viTriData.so_km,
-        totalDistance,
-        position: currentPosition,
-      });
-
+      // Load lich_su_vi_tri nếu có, nhưng vì mặc định reset, có lẽ xóa nếu chưa start
       const { data: lichSuData, error: lichSuError } = await supabase
         .from('lich_su_vi_tri')
         .select('lat, lng, pin, toc_do, so_km, cap_nhat_luc')
@@ -448,22 +447,19 @@ export default function TripTrackingPage() {
       if (!lichSuError && lichSuData && lichSuData.length > 0) {
         setPath(lichSuData.map(item => [item.lat, item.lng]));
         logMessage('success', 'Loaded path from lich_su_vi_tri', { points: lichSuData.length });
-      } else if (tramThuePosition) {
-        setPath([tramThuePosition, currentPosition]);
+      } else {
+        setPath([tramThuePosition]);
         await supabase
           .from('lich_su_vi_tri')
           .insert({
             chuyen_di_id: chuyenDiData.id,
-            lat: currentPosition[0],
-            lng: currentPosition[1],
-            pin: viTriData.pin || 100,
-            toc_do: viTriData.toc_do || 0,
-            so_km: viTriData.so_km || 0,
+            lat: tramThuePosition[0],
+            lng: tramThuePosition[1],
+            pin: 100,
+            toc_do: 0,
+            so_km: 0,
           });
-        logMessage('success', 'Initialized path and inserted first lich_su_vi_tri', { position: currentPosition });
-      } else {
-        setPath([currentPosition]);
-        logMessage('success', 'Initialized path with current position only', { position: currentPosition });
+        logMessage('success', 'Initialized path with tram_thue_position', { position: tramThuePosition });
       }
 
       const lichSuChannel = supabase.channel('lich_su_vi_tri_changes')
@@ -547,75 +543,75 @@ export default function TripTrackingPage() {
   }, []);
 
   // Hàm bắt đầu chuyến đi
-const startTrip = async () => {
-  if (isTripStarted) {
-    logMessage('info', 'Trip already started', { chuyenDiId: tripData.chuyen_di_id });
-    alert('Chuyến đi đã được bắt đầu!');
-    return;
-  }
+  const startTrip = async () => {
+    if (isTripStarted) {
+      logMessage('info', 'Trip already started', { chuyenDiId: tripData.chuyen_di_id });
+      alert('Chuyến đi đã được bắt đầu!');
+      return;
+    }
 
-  if (!tripData.tram_thue_position) {
-    logMessage('error', 'No tram_thue_position to reset', {});
-    alert('Không có vị trí trạm thuê để bắt đầu!');
-    return;
-  }
+    if (!tripData.tram_thue_position) {
+      logMessage('error', 'No tram_thue_position to reset', {});
+      alert('Không có vị trí trạm thuê để bắt đầu!');
+      return;
+    }
 
-  // Reset vi_tri_xe về tram_thue_position
-  const resetPosition = tripData.tram_thue_position;
-  try {
-    const { error: updateError } = await supabase
-      .from('vi_tri_xe')
-      .update({
-        lat: resetPosition[0],
-        lng: resetPosition[1],
-        pin: 100,  // Optional: reset pin nếu cần
-        toc_do: 0,
-        so_km: 0,  // Reset distance
-        cap_nhat_luc: new Date().toISOString(),
-      })
-      .eq('xe_id', tripData.xe_id);
-
-    if (updateError) throw updateError;
-
-    // Insert lich_su_vi_tri đầu tiên nếu chưa có
-    const { data: existingLichSu } = await supabase
-      .from('lich_su_vi_tri')
-      .select('*')
-      .eq('chuyen_di_id', tripData.chuyen_di_id)
-      .limit(1);
-
-    if (!existingLichSu || existingLichSu.length === 0) {
-      await supabase
-        .from('lich_su_vi_tri')
-        .insert({
-          chuyen_di_id: tripData.chuyen_di_id,
+    // Reset vi_tri_xe về tram_thue_position (dù đã set mặc định, nhưng để chắc chắn)
+    const resetPosition = tripData.tram_thue_position;
+    try {
+      const { error: updateError } = await supabase
+        .from('vi_tri_xe')
+        .update({
           lat: resetPosition[0],
           lng: resetPosition[1],
           pin: 100,
           toc_do: 0,
           so_km: 0,
-        });
+          cap_nhat_luc: new Date().toISOString(),
+        })
+        .eq('xe_id', tripData.xe_id);
+
+      if (updateError) throw updateError;
+
+      // Insert lich_su_vi_tri đầu tiên nếu chưa có
+      const { data: existingLichSu } = await supabase
+        .from('lich_su_vi_tri')
+        .select('*')
+        .eq('chuyen_di_id', tripData.chuyen_di_id)
+        .limit(1);
+
+      if (!existingLichSu || existingLichSu.length === 0) {
+        await supabase
+          .from('lich_su_vi_tri')
+          .insert({
+            chuyen_di_id: tripData.chuyen_di_id,
+            lat: resetPosition[0],
+            lng: resetPosition[1],
+            pin: 100,
+            toc_do: 0,
+            so_km: 0,
+          });
+      }
+
+      // Cập nhật state local để bản đồ refresh
+      setTripData(prev => ({
+        ...prev,
+        position: resetPosition,
+        distance: 0,
+        battery: 100,
+        speed: 0,
+        remainingKm: prev.range_km,
+      }));
+      setPath([resetPosition]);  // Reset path về chỉ cờ xanh
+
+      setIsTripStarted(true);
+      logMessage('success', 'Trip started and position reset to tram_thue', { position: resetPosition });
+      alert('Chuyến đi đã bắt đầu! Vị trí xe đã reset về trạm thuê.');
+    } catch (error) {
+      logMessage('error', 'Failed to reset position and start trip', { error });
+      alert('Lỗi khi bắt đầu chuyến đi. Vui lòng thử lại.');
     }
-
-    // Cập nhật state local để bản đồ refresh
-    setTripData(prev => ({
-      ...prev,
-      position: resetPosition,
-      distance: 0,
-      battery: 100,
-      speed: 0,
-      remainingKm: prev.range_km,
-    }));
-    setPath([resetPosition]);  // Reset path về chỉ cờ xanh
-
-    setIsTripStarted(true);
-    logMessage('success', 'Trip started and position reset to tram_thue', { position: resetPosition });
-    alert('Chuyến đi đã bắt đầu! Vị trí xe đã reset về trạm thuê.');
-  } catch (error) {
-    logMessage('error', 'Failed to reset position and start trip', { error });
-    alert('Lỗi khi bắt đầu chuyến đi. Vui lòng thử lại.');
-  }
-};
+  };
 
   // Mô phỏng dữ liệu - chỉ chạy khi chuyến đi đã bắt đầu
   useEffect(() => {

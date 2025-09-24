@@ -15,6 +15,9 @@ export default function AccountPage() {
     email: localStorage.getItem("email") || "",
     ngay_sinh: "",
   });
+  const [chuyenDis, setChuyenDis] = useState([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(true);
+  const [invoicesError, setInvoicesError] = useState(null);
 
   useEffect(() => {
     const checkAuthAndFetchUser = async () => {
@@ -41,10 +44,32 @@ export default function AccountPage() {
           ngay_sinh: "",
         });
       }
+
+      // Fetch lịch sử chuyến đi
+      await fetchChuyenDi(user.id);
     };
 
     checkAuthAndFetchUser();
   }, [router]);
+
+  const fetchChuyenDi = async (userId) => {
+    setInvoicesLoading(true);
+    setInvoicesError(null);
+    try {
+      const response = await fetch("http://localhost:8080/api/chuyen-di");
+      if (!response.ok) {
+        throw new Error("Failed to fetch chuyen di");
+      }
+      const data = await response.json();
+      // Filter theo nguoiDungId
+      const filtered = data.filter((item) => item.nguoiDungId === userId);
+      setChuyenDis(filtered);
+    } catch (err) {
+      setInvoicesError("Lỗi tải lịch sử chuyến đi: " + err.message);
+    } finally {
+      setInvoicesLoading(false);
+    }
+  };
 
   const navItem = (id, label) => (
     <button
@@ -229,6 +254,67 @@ export default function AccountPage() {
                   {loading ? "Đang cập nhật..." : "Cập nhật thông tin"}
                 </button>
               </form>
+            </div>
+          )}
+
+          {tab === "invoices" && (
+            <div className="bg-white rounded-2xl card-shadow p-8">
+              <h2 className="text-2xl font-bold mb-6">Lịch sử hóa đơn & chuyến đi</h2>
+              
+              {invoicesError && (
+                <div className="bg-red-50 text-red-700 p-4 rounded-xl text-sm mb-6">
+                  {invoicesError}
+                </div>
+              )}
+
+              {invoicesLoading ? (
+                <div className="text-center py-8 text-neutral-600">Đang tải dữ liệu...</div>
+              ) : chuyenDis.length === 0 ? (
+                <div className="text-center py-8 text-neutral-600">Bạn chưa có chuyến đi nào</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full table-auto">
+                    <thead>
+                      <tr className="bg-neutral-100 text-left text-sm font-semibold text-neutral-700">
+                        <th className="px-4 py-3 rounded-tl-xl">ID Chuyến đi</th>
+                        <th className="px-4 py-3">Xe ID</th>
+                        <th className="px-4 py-3">Trạng thái</th>
+                        <th className="px-4 py-3">Bắt đầu</th>
+                        <th className="px-4 py-3">Kết thúc</th>
+                        <th className="px-4 py-3">Tổng chi phí</th>
+                        <th className="px-4 py-3 rounded-tr-xl">Path</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-200">
+                      {chuyenDis.map((chuyen) => (
+                        <tr key={chuyen.id} className="hover:bg-neutral-50">
+                          <td className="px-4 py-3 text-sm">{chuyen.id}</td>
+                          <td className="px-4 py-3 text-sm">{chuyen.xeId}</td>
+                          <td className="px-4 py-3 text-sm">
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              chuyen.trangThai === 'HOAN_THANH' ? 'bg-success/10 text-success' :
+                              chuyen.trangThai === 'DANG_DI' ? 'bg-warning/10 text-warning' :
+                              'bg-neutral-100 text-neutral-700'
+                            }`}>
+                              {chuyen.trangThai}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {chuyen.batDauLuc ? new Date(chuyen.batDauLuc).toLocaleString('vi-VN') : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {chuyen.ketThucLuc ? new Date(chuyen.ketThucLuc).toLocaleString('vi-VN') : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {chuyen.tongChiPhi ? `${chuyen.tongChiPhi.toLocaleString('vi-VN')} đ` : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-sm truncate max-w-xs">{chuyen.path || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
