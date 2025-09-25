@@ -61,9 +61,33 @@ export default function AccountPage() {
         throw new Error("Failed to fetch chuyen di");
       }
       const data = await response.json();
-      // Filter theo nguoiDungId
-      const filtered = data.filter((item) => item.nguoiDungId === userId);
-      setChuyenDis(filtered);
+      
+      const userTrips = data.filter((item) => item.nguoiDungId === userId);
+
+      const tripsWithDetails = await Promise.all(userTrips.map(async (trip) => {
+        try {
+          // Fetch tên xe
+          const carResponse = await fetch(`http://localhost:8080/api/xe/${trip.xeId}`);
+          const carData = await carResponse.json();
+          const tenXe = carData.name || "Xe không xác định";
+
+          // Fetch thông tin đơn thuê để lấy tiền cọc và chi phí ước tính
+          const donThueResponse = await fetch(`http://localhost:8080/api/donthue/${trip.donThueId}`);
+          const donThueData = await donThueResponse.json();
+          
+          return {
+            ...trip, 
+            tenXe: tenXe,
+            soTienCoc: donThueData.soTienCoc,
+            chiPhiUocTinh: donThueData.chiPhiUocTinh
+          };
+        } catch (detailError) {
+          console.error("Lỗi lấy thông tin chi tiết chuyến đi:", detailError);
+          return { ...trip, tenXe: "Xe không xác định", soTienCoc: null, chiPhiUocTinh: null };
+        }
+      }));
+
+      setChuyenDis(tripsWithDetails);
     } catch (err) {
       setInvoicesError("Lỗi tải lịch sử chuyến đi: " + err.message);
     } finally {
@@ -106,10 +130,9 @@ export default function AccountPage() {
       });
 
       if (response.ok) {
-        // Backend set INACTIVE và invalidate session
         localStorage.clear();
         window.dispatchEvent(new Event("mg-auth-changed"));
-        router.push("/login"); // Redirect về login sau logout
+        router.push("/login");
       } else {
         const data = await response.json();
         setError(data.message || "Đăng xuất thất bại.");
@@ -145,7 +168,6 @@ export default function AccountPage() {
     if (updateError) {
       setError("Lỗi cập nhật thông tin: " + updateError.message);
     } else {
-      // Cập nhật localStorage
       localStorage.setItem("ho_ten", userInfo.ho_ten);
       localStorage.setItem("sdt", userInfo.sdt);
       alert("Cập nhật thành công!");
@@ -171,7 +193,7 @@ export default function AccountPage() {
             </div>
             <nav className="space-y-2">
               {navItem("profile", "Hồ sơ & eKYC")}
-              {navItem("invoices", "Hóa đơn")}
+              {navItem("invoices", "Lịch sử thuê")}
             </nav>
             {/* Logout button */}
             <div className="mt-6">
@@ -225,15 +247,6 @@ export default function AccountPage() {
                       className="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-2">Ngày sinh</label>
-                    <input
-                      type="date"
-                      value={userInfo.ngay_sinh}
-                      onChange={(e) => setUserInfo({ ...userInfo, ngay_sinh: e.target.value })}
-                      className="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
-                    />
-                  </div>
                 </div>
 
                 <div className="bg-success/10 border border-success/20 rounded-xl p-6 mb-6">
@@ -259,7 +272,7 @@ export default function AccountPage() {
 
           {tab === "invoices" && (
             <div className="bg-white rounded-2xl card-shadow p-8">
-              <h2 className="text-2xl font-bold mb-6">Lịch sử hóa đơn & chuyến đi</h2>
+              <h2 className="text-2xl font-bold mb-6">Lịch sử thuê xe</h2>
               
               {invoicesError && (
                 <div className="bg-red-50 text-red-700 p-4 rounded-xl text-sm mb-6">
@@ -275,21 +288,29 @@ export default function AccountPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full table-auto">
                     <thead>
-                      <tr className="bg-neutral-100 text-left text-sm font-semibold text-neutral-700">
-                        <th className="px-4 py-3 rounded-tl-xl">ID Chuyến đi</th>
-                        <th className="px-4 py-3">Xe ID</th>
-                        <th className="px-4 py-3">Trạng thái</th>
-                        <th className="px-4 py-3">Bắt đầu</th>
-                        <th className="px-4 py-3">Kết thúc</th>
+                      <tr className="bg-neutral-120 text-left text-sm font-semibold text-neutral-700">
+                        <th className="px-4 py-3 rounded-tl-xl">Tên xe đã thuê</th>
+                        <th className="px-8 py-3">Tiền cọc</th>
+                        <th className="px-8 py-3">Chi phí ước tính</th>
                         <th className="px-4 py-3">Tổng chi phí</th>
-                        <th className="px-4 py-3 rounded-tr-xl">Path</th>
+                        <th className="px-4 py-3">Trạng thái</th>
+                        <th className="px-4 py-3">Thời gian bắt đầu</th>
+                        <th className="px-4 py-3 rounded-tr-xl">Thời gian kết thúc</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-200">
                       {chuyenDis.map((chuyen) => (
                         <tr key={chuyen.id} className="hover:bg-neutral-50">
-                          <td className="px-4 py-3 text-sm">{chuyen.id}</td>
-                          <td className="px-4 py-3 text-sm">{chuyen.xeId}</td>
+                          <td className="px-4 py-3 text-sm">{chuyen.tenXe}</td>
+                          <td className="px-4 py-3 text-sm">
+                            {chuyen.soTienCoc ? `${chuyen.soTienCoc.toLocaleString('vi-VN')} đ` : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {chuyen.chiPhiUocTinh ? `${chuyen.chiPhiUocTinh.toLocaleString('vi-VN')} đ` : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {chuyen.tongChiPhi ? `${chuyen.tongChiPhi.toLocaleString('vi-VN')} đ` : '—'}
+                          </td>
                           <td className="px-4 py-3 text-sm">
                             <span className={`px-2 py-1 rounded-full text-xs ${
                               chuyen.trangThai === 'HOAN_THANH' ? 'bg-success/10 text-success' :
@@ -305,10 +326,6 @@ export default function AccountPage() {
                           <td className="px-4 py-3 text-sm">
                             {chuyen.ketThucLuc ? new Date(chuyen.ketThucLuc).toLocaleString('vi-VN') : '—'}
                           </td>
-                          <td className="px-4 py-3 text-sm">
-                            {chuyen.tongChiPhi ? `${chuyen.tongChiPhi.toLocaleString('vi-VN')} đ` : '—'}
-                          </td>
-                          <td className="px-4 py-3 text-sm truncate max-w-xs">{chuyen.path || '—'}</td>
                         </tr>
                       ))}
                     </tbody>

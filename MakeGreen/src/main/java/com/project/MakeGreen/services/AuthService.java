@@ -56,6 +56,7 @@ public class AuthService {
             tokens.getRefreshToken(),
             tokens.getUserId(),
             tokens.getEmail(),
+            user.getSdt(),
             roles
         );
     }
@@ -95,6 +96,7 @@ public class AuthService {
             tokens.getRefreshToken(),
             tokens.getUserId(),
             tokens.getEmail(),
+            user.getSdt(),
             roles
         );
     }
@@ -118,6 +120,7 @@ public class AuthService {
             tokens.getRefreshToken(),
             tokens.getUserId(),
             tokens.getEmail(),
+            user.getSdt(),
             roles
         );
     }
