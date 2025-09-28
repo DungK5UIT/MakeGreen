@@ -100,9 +100,9 @@ export default function AdminDashboardPage() {
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Hoạt động gần đây</h3>
           <div className="space-y-4 max-h-80 overflow-y-auto">
             {[
-              { iconBg: 'bg-blue-100 dark:bg-blue-900', icon: <FaCar className="text-blue-600 dark:text-blue-400" />, text: 'Xe VF-001 được thuê bởi Nguyễn Văn A', time: '2 phút trước' },
+              { iconBg: 'bg-blue-100 dark:bg-blue-900', icon: <FaCar className="text-blue-600 dark:text-blue-400" />, text: 'Xe Pega NewTech 001 được thuê bởi Nguyễn Văn A', time: '2 phút trước' },
               { iconBg: 'bg-green-100 dark:bg-green-900', icon: <FaDollarSign className="text-green-600 dark:text-green-400" />, text: 'Thanh toán 450,000đ hoàn thành', time: '5 phút trước' },
-              { iconBg: 'bg-red-100 dark:bg-red-900', icon: <FaExclamationTriangle className="text-red-600 dark:text-red-400" />, text: 'Sự cố xe VF-025 được báo cáo', time: '10 phút trước' },
+              { iconBg: 'bg-red-100 dark:bg-red-900', icon: <FaExclamationTriangle className="text-red-600 dark:text-red-400" />, text: 'Sự cố xe Yadea G5 003 được báo cáo', time: '10 phút trước' },
               { iconBg: 'bg-purple-100 dark:bg-purple-900', icon: <FaUserPlus className="text-purple-600 dark:text-purple-400" />, text: 'Người dùng mới đăng ký: Trần Thị B', time: '15 phút trước' },
             ].map((a, i) => (
               <div key={i} className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">

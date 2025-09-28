@@ -8,7 +8,7 @@ import {
 } from 'react-icons/fa';
 
 const sections = [
-  { href: '/admin', key: 'dashboard', label: 'Dashboard', icon: <FaCar className="w-5" /> },
+  { href: '/admin', key: 'dashboard', label: 'Thống Kê', icon: <FaCar className="w-5" /> },
   { href: '/admin/xe', key: 'xe', label: 'Bảng xe', icon: <FaCar className="w-5" /> },
   { href: '/admin/nguoidung', key: 'nguoi_dung', label: 'Người dùng', icon: <FaUsers className="w-5" /> },
   { href: '/admin/donthue', key: 'don_thue', label: 'Đơn thuê', icon: <FaFileContract className="w-5" /> },
