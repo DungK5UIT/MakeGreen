@@ -145,6 +145,7 @@ function VehicleTable({ onOpenModal, refreshKey, searchQuery, statusFilter, bran
     try {
       const response = await fetch(`http://localhost:8080/api/xe/${id}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Failed to delete vehicle');
+      alert('Xóa xe thành công!');
       fetchXes();
     } catch (error) {
       console.error('Error deleting vehicle:', error);
@@ -172,13 +173,9 @@ function VehicleTable({ onOpenModal, refreshKey, searchQuery, statusFilter, bran
               <tr key={xe.id} className="table-row hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
-                    {xe.imageUrls && xe.imageUrls.length > 0 ? (
-                      <img src={xe.imageUrls[0]} alt={xe.name} className="w-12 h-12 rounded-xl object-cover mr-4" />
-                    ) : (
-                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-xl grid place-items-center mr-4">
-                        <FaCar className="text-blue-600 dark:text-blue-400" />
-                      </div>
-                    )}
+                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-xl grid place-items-center mr-4">
+                      <FaCar className="text-blue-600 dark:text-blue-400" />
+                    </div>
                     <div>
                       <div className="text-sm font-semibold text-gray-900 dark:text-white">{xe.bienSo || 'N/A'}</div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">{xe.brand} {xe.model}</div>
@@ -262,7 +259,6 @@ function VehicleModal({ open, onClose, isCreating, isViewOnly, selectedXe }) {
     weightKg: null,
     dungLuongPinWh: null,
     pinTieuThuPerKm: null,
-    imageUrls: '',
   });
 
   useEffect(() => {
@@ -285,7 +281,6 @@ function VehicleModal({ open, onClose, isCreating, isViewOnly, selectedXe }) {
         weightKg: selectedXe.weightKg || null,
         dungLuongPinWh: selectedXe.dungLuongPinWh || null,
         pinTieuThuPerKm: selectedXe.pinTieuThuPerKm || null,
-        imageUrls: (selectedXe.imageUrls || []).join(', ') || '',
       });
     } else {
       setFormData({
@@ -306,7 +301,6 @@ function VehicleModal({ open, onClose, isCreating, isViewOnly, selectedXe }) {
         weightKg: null,
         dungLuongPinWh: null,
         pinTieuThuPerKm: null,
-        imageUrls: '',
       });
     }
   }, [isCreating, selectedXe, open]);
@@ -325,28 +319,40 @@ function VehicleModal({ open, onClose, isCreating, isViewOnly, selectedXe }) {
     e.preventDefault();
     const dataToSend = {
       ...formData,
-      imageUrls: formData.imageUrls ? formData.imageUrls.split(',').map(url => url.trim()) : null,
     };
 
-    const params = new URLSearchParams();
-    Object.entries(dataToSend).forEach(([key, value]) => {
-      if (value !== null && value !== undefined) {
-        if (Array.isArray(value)) {
-          value.forEach(v => params.append(key, v));
-        } else {
-          params.append(key, value);
-        }
+    // Lọc bỏ các trường null hoặc undefined để tránh gửi giá trị không cần thiết
+    Object.keys(dataToSend).forEach(key => {
+      if (dataToSend[key] === null || dataToSend[key] === undefined) {
+        delete dataToSend[key];
       }
     });
 
     try {
       let response;
       if (isCreating) {
-        response = await fetch(`http://localhost:8080/api/xe?${params.toString()}`, { method: 'POST' });
+        response = await fetch('http://localhost:8080/api/xe', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(dataToSend),
+        });
       } else {
-        response = await fetch(`http://localhost:8080/api/xe/${selectedXe.id}?${params.toString()}`, { method: 'PUT' });
+        response = await fetch(`http://localhost:8080/api/xe/${selectedXe.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(dataToSend),
+        });
       }
-      if (!response.ok) throw new Error('Failed to save vehicle');
+      if (!response.ok) {
+        const errorText = await response.text(); // Đọc nội dung phản hồi để debug
+        console.error('Response error:', errorText);
+        throw new Error('Failed to save vehicle');
+      }
+      alert(isCreating ? 'Thêm xe thành công!' : 'Cập nhật xe thành công!');
       onClose();
     } catch (error) {
       console.error('Error saving vehicle:', error);
@@ -437,10 +443,6 @@ function VehicleModal({ open, onClose, isCreating, isViewOnly, selectedXe }) {
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pin tiêu thụ/km</label>
               <input name="pinTieuThuPerKm" type="number" step="0.1" value={formData.pinTieuThuPerKm || ''} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white" disabled={isViewOnly} />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">URLs hình ảnh (phân cách bằng dấu phẩy)</label>
-              <textarea name="imageUrls" value={formData.imageUrls} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white" disabled={isViewOnly} />
             </div>
           </div>
           <div className="mt-6 flex justify-end gap-3">

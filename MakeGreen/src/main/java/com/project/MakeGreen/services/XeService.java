@@ -3,6 +3,7 @@ package com.project.MakeGreen.services;
 import com.project.MakeGreen.dtos.XeDto;
 import com.project.MakeGreen.models.Xe;
 import com.project.MakeGreen.repositories.XeRepository;
+import org.hibernate.Hibernate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +47,7 @@ public class XeService {
                 .build();
 
         Xe savedXe = xeRepository.save(xe);
+        Hibernate.initialize(savedXe.getBaoTris());
         logger.info("Tao xe thanh cong voi id: {}", savedXe.getId());
 
         return savedXe;
@@ -55,6 +57,9 @@ public class XeService {
     @Transactional(readOnly = true)
     public List<XeDto> layTatCaXe() {
         List<Xe> xes = xeRepository.findAll();
+        for (Xe xe : xes) {
+            Hibernate.initialize(xe.getBaoTris());
+        }
         return xes.stream()
                 .map(XeDto::from)
                 .collect(Collectors.toList());
@@ -64,6 +69,7 @@ public class XeService {
     @Transactional(readOnly = true)
     public Optional<XeDto> layXeTheoId(UUID id) {
         Optional<Xe> optionalXe = xeRepository.findById(id);
+        optionalXe.ifPresent(xe -> Hibernate.initialize(xe.getBaoTris()));
         return optionalXe.map(XeDto::from);
     }
 
@@ -126,6 +132,7 @@ public class XeService {
         }
 
         Xe updatedXe = xeRepository.save(xe);
+        Hibernate.initialize(updatedXe.getBaoTris());
         logger.info("Cap nhat xe thanh cong voi id: {}", updatedXe.getId());
 
         return updatedXe;

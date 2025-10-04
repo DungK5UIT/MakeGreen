@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
+@CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/api/xe")
 public class XeController {
@@ -24,31 +25,14 @@ public class XeController {
 
     // Create: Tạo xe mới
     @PostMapping
-    public ResponseEntity<?> taoXe(
-            @RequestParam String bienSo,
-            @RequestParam String trangThai,
-            @RequestParam(required = false) Integer pinPhanTram,
-            @RequestParam(required = false) Double soKm,
-            @RequestParam(required = false) String name,
-            @RequestParam(required = false) String brand,
-            @RequestParam(required = false) String model,
-            @RequestParam(required = false) Integer rangeKm,
-            @RequestParam(required = false) Integer topSpeedKmh,
-            @RequestParam(required = false) String battery,
-            @RequestParam(required = false) Double price,
-            @RequestParam(required = false) Double deposit,
-            @RequestParam(required = false) Double rating,
-            @RequestParam(required = false) String chargeTime,
-            @RequestParam(required = false) Integer weightKg,
-            @RequestParam(required = false) Integer dungLuongPinWh,
-            @RequestParam(required = false) Double pinTieuThuPerKm) {
+    public ResponseEntity<?> taoXe(@RequestBody XeDto xeDto) {
         try {
-            log.info("Tao xe voi bienSo: {}", bienSo);
-            Xe xe = xeService.taoXe(bienSo, trangThai, pinPhanTram, soKm, name, brand, model, rangeKm, topSpeedKmh, battery, price, deposit, rating, chargeTime, weightKg, dungLuongPinWh, pinTieuThuPerKm);
+            log.info("Tao xe voi bienSo: {}", xeDto.getBienSo());
+            Xe xe = xeService.taoXe(xeDto.getBienSo(), xeDto.getTrangThai(), xeDto.getPinPhanTram(), xeDto.getSoKm(), xeDto.getName(), xeDto.getBrand(), xeDto.getModel(), xeDto.getRangeKm(), xeDto.getTopSpeedKmh(), xeDto.getBattery(), xeDto.getPrice(), xeDto.getDeposit(), xeDto.getRating(), xeDto.getChargeTime(), xeDto.getWeightKg(), xeDto.getDungLuongPinWh(), xeDto.getPinTieuThuPerKm());
             log.info("Successfully tao xe: {}", xe.getId());
             return ResponseEntity.ok(XeDto.from(xe));
         } catch (RuntimeException e) {
-            log.error("Error tao xe for bienSo {}: {}", bienSo, e.getMessage());
+            log.error("Error tao xe for bienSo {}: {}", xeDto.getBienSo(), e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST.value()));
         }
@@ -77,28 +61,10 @@ public class XeController {
 
     // Update: Cập nhật xe
     @PutMapping("/{id}")
-    public ResponseEntity<?> capNhatXe(
-            @PathVariable UUID id,
-            @RequestParam(required = false) String bienSo,
-            @RequestParam(required = false) String trangThai,
-            @RequestParam(required = false) Integer pinPhanTram,
-            @RequestParam(required = false) Double soKm,
-            @RequestParam(required = false) String name,
-            @RequestParam(required = false) String brand,
-            @RequestParam(required = false) String model,
-            @RequestParam(required = false) Integer rangeKm,
-            @RequestParam(required = false) Integer topSpeedKmh,
-            @RequestParam(required = false) String battery,
-            @RequestParam(required = false) Double price,
-            @RequestParam(required = false) Double deposit,
-            @RequestParam(required = false) Double rating,
-            @RequestParam(required = false) String chargeTime,
-            @RequestParam(required = false) Integer weightKg,
-            @RequestParam(required = false) Integer dungLuongPinWh,
-            @RequestParam(required = false) Double pinTieuThuPerKm) {
+    public ResponseEntity<?> capNhatXe(@PathVariable UUID id, @RequestBody XeDto xeDto) {
         try {
             log.info("Cap nhat xe id: {}", id);
-            Xe updatedXe = xeService.capNhatXe(id, bienSo, trangThai, pinPhanTram, soKm, name, brand, model, rangeKm, topSpeedKmh, battery, price, deposit, rating, chargeTime, weightKg, dungLuongPinWh, pinTieuThuPerKm);
+            Xe updatedXe = xeService.capNhatXe(id, xeDto.getBienSo(), xeDto.getTrangThai(), xeDto.getPinPhanTram(), xeDto.getSoKm(), xeDto.getName(), xeDto.getBrand(), xeDto.getModel(), xeDto.getRangeKm(), xeDto.getTopSpeedKmh(), xeDto.getBattery(), xeDto.getPrice(), xeDto.getDeposit(), xeDto.getRating(), xeDto.getChargeTime(), xeDto.getWeightKg(), xeDto.getDungLuongPinWh(), xeDto.getPinTieuThuPerKm());
             log.info("Successfully cap nhat xe: {}", updatedXe.getId());
             return ResponseEntity.ok(XeDto.from(updatedXe));
         } catch (RuntimeException e) {
