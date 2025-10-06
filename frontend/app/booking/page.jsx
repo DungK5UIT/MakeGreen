@@ -63,65 +63,112 @@ const BookingPage = () => {
   const backIDRef = useRef(null);
   const gplxRef = useRef(null);
 
-  // Redirect nếu thiếu vehicleId
-  useEffect(() => {
-    if (!vehicleId) {
-      router.push('/vehicles');
-    }
-  }, [vehicleId, router]);
+      // ✅ TỐI ƯU: Gộp tất cả logic tải dữ liệu ban đầu vào một useEffect duy nhất
+    useEffect(() => {
+        // Nếu không có vehicleId, chuyển hướng ngay lập tức
+        if (!vehicleId) {
+            console.log('DEBUG: No vehicleId provided, redirecting to /vehicles');
+            router.push('/vehicles');
+            return;
+        }
 
-  // Load danh sách trạm
-  useEffect(() => {
-    const fetchTramList = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('tram')
-          .select('id, ten, dia_chi, trang_thai')
-          .eq('trang_thai', 'hoat_dong');
-        if (error) throw error;
-        setTramList(data);
-      } catch (err) {
-        setError('Lỗi tải danh sách trạm: ' + err.message);
-      }
-    };
-    fetchTramList();
-  }, []);
+        const fetchInitialData = async () => {
+            setLoading(true);
+            setError(''); // Xóa lỗi cũ khi tải lại
 
-  // Load xe
-  useEffect(() => {
-    if (!vehicleId) return;
-    const fetchVehicle = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('xe')
-          .select('*')
-          .eq('id', vehicleId)
-          .single();
+            try {
+                console.log('DEBUG: Starting fetchInitialData for vehicleId:', vehicleId);
 
-        if (error) throw new Error(error.message);
+                // --- Bắt đầu tải thông tin xe ---
+                console.log('DEBUG: Fetching vehicle data from "xe" table');
+                const { data: vehicleData, error: vehicleError } = await supabase
+                    .from('xe')
+                    .select('*')
+                    .eq('id', vehicleId)
+                    .single();
 
-        const processedVehicle = {
-          ...data,
-          price: Number(data.price) || 0,
-          deposit: Number(data.deposit) || 0,
-          rating: Number(data.rating) || 0,
-          range_km: Number(data.range_km) || 0,
-          top_speed_kmh: Number(data.top_speed_kmh) || 0,
-          weight_kg: Number(data.weight_kg) || 0,
-          so_km: Number(data.so_km) || 0,
-          pin_phan_tram: Number(data.pin_phan_tram) || 0,
+                if (vehicleError) {
+                    console.error('DEBUG: Vehicle fetch error:', vehicleError);
+                    throw new Error('Không tìm thấy xe hoặc có lỗi khi tải thông tin xe: ' + vehicleError.message);
+                }
+                
+                console.log('DEBUG: Vehicle data fetched successfully:', vehicleData);
+                setVehicle({
+                    ...vehicleData,
+                    price: Number(vehicleData.price) || 0,
+                    deposit: Number(vehicleData.deposit) || 0,
+                    rating: Number(vehicleData.rating) || 0,
+                    range_km: Number(vehicleData.range_km) || 0,
+                    top_speed_kmh: Number(vehicleData.top_speed_kmh) || 0,
+                    weight_kg: Number(vehicleData.weight_kg) || 0,
+                    so_km: Number(vehicleData.so_km) || 0,
+                    pin_phan_tram: Number(vehicleData.pin_phan_tram) || 0,
+                });
+
+                // --- Bắt đầu tải danh sách trạm ---
+                // Bước 1: Lấy ID các trạm liên quan
+                console.log('DEBUG: Fetching associated trams from "Tram_Xe" table for xe_id:', vehicleId);
+                const { data: associatedTrams, error: assocError } = await supabase
+                    .from('Tram_Xe')
+                    .select('tram_id')
+                    .eq('xe_id', vehicleId);
+
+                if (assocError) {
+                    console.error('DEBUG: Associated trams fetch error:', assocError);
+                    throw new Error('Lỗi khi tìm các trạm liên kết: ' + assocError.message);
+                }
+
+                console.log('DEBUG: Associated trams data:', associatedTrams);
+                const tramIds = associatedTrams.map(a => a.tram_id);
+                console.log('DEBUG: Extracted tramIds:', tramIds);
+
+                // Nếu xe không thuộc trạm nào, dừng lại và báo lỗi
+                if (tramIds.length === 0) {
+                    console.log('DEBUG: No associated trams found for this vehicle');
+                    setTramList([]);
+                    setError('Xe này hiện không được gán cho bất kỳ trạm nào.');
+                    return; // Dừng thực thi
+                }
+
+                // Bước 2: Lấy thông tin các trạm đang hoạt động từ danh sách ID
+                console.log('DEBUG: Fetching active trams from "tram" table for ids:', tramIds);
+                const { data: activeTrams, error: tramsError } = await supabase
+                    .from('tram')
+                    .select('id, ten, dia_chi, trang_thai')
+                    .in('id', tramIds)
+                    .eq('trang_thai', 'hoat_dong');
+
+                if (tramsError) {
+                    console.error('DEBUG: Active trams fetch error:', tramsError);
+                    throw new Error('Lỗi khi tải chi tiết các trạm: ' + tramsError.message);
+                }
+
+                console.log('DEBUG: Active trams data:', activeTrams);
+
+                // ✅ SỬA: Xử lý trường hợp không có trạm nào đang hoạt động
+                if (activeTrams.length === 0) {
+                    console.log('DEBUG: No active trams found');
+                    setTramList([]);
+                    setError('Xe này hiện không có sẵn tại bất kỳ trạm nào đang hoạt động.');
+                } else {
+                    console.log('DEBUG: Setting tramList with', activeTrams.length, 'active trams');
+                    setTramList(activeTrams);
+                }
+
+            } catch (err) {
+                console.error('DEBUG: Full error in fetchInitialData:', err.message, err.stack);
+                setError(err.message);
+                setVehicle(null);
+                setTramList([]);
+            } finally {
+                // Đảm bảo loading luôn được tắt sau khi hoàn thành hoặc có lỗi
+                console.log('DEBUG: fetchInitialData completed, setting loading to false');
+                setLoading(false);
+            }
         };
 
-        setVehicle(processedVehicle);
-      } catch (err) {
-        setError('Lỗi tải thông tin xe: ' + err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchVehicle();
-  }, [vehicleId]);
+        fetchInitialData();
+    }, [vehicleId, router]);
 
   // ✅ SỬA: XỬ LÝ LỖI AuthSessionMissingError — KHÔNG ĐỂ CRASH
   const checkAuth = async () => {
