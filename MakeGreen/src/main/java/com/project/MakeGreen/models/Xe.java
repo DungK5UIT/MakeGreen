@@ -30,7 +30,7 @@ public class Xe {
     @Column(name = "pin_phan_tram")
     private Integer pinPhanTram;
 
-    @Column(name = "so_km")
+    @Column(name = "so_km_da_di")
     private Double soKm;
 
     @Column(name = "name")
@@ -71,7 +71,9 @@ public class Xe {
 
     @Column(name = "pin_tieu_thu_per_km")
     private Double pinTieuThuPerKm;
-
+    
+    @Column(name = "tinh_trang")
+    private String tinhTrang;
     // Thêm quan hệ OneToMany với BaoTri
     @OneToMany(mappedBy = "xe", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BaoTri> baoTris = new ArrayList<>();

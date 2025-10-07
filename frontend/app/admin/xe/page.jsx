@@ -125,7 +125,8 @@ function VehicleTable({ onOpenModal, refreshKey, searchQuery, statusFilter, bran
       filteredData = filteredData.filter(xe =>
         (xe.name?.toLowerCase() || '').includes(query) ||
         (xe.model?.toLowerCase() || '').includes(query) ||
-        (xe.bienSo?.toLowerCase() || '').includes(query)
+        (xe.bienSo?.toLowerCase() || '').includes(query) ||
+        (xe.tinhTrang?.toLowerCase() || '').includes(query) // Thêm tìm kiếm theo tình trạng
       );
     }
 
@@ -161,7 +162,7 @@ function VehicleTable({ onOpenModal, refreshKey, searchQuery, statusFilter, bran
         <table className="w-full">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
-              {['Xe', 'Pin', 'Số km', 'Trạng thái', 'Giá thuê', 'Đánh giá', 'Thao tác'].map((h) => (
+              {['Xe', 'Pin', 'Số km đã đi', 'Trạng thái', 'Tình trạng', 'Giá thuê', 'Đánh giá', 'Thao tác'].map((h) => ( // Thêm cột Tình trạng
                 <th key={h} className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {h}
                 </th>
@@ -199,6 +200,7 @@ function VehicleTable({ onOpenModal, refreshKey, searchQuery, statusFilter, bran
                     'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200'
                   }`}>{xe.trangThai || 'N/A'}</span>
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{xe.tinhTrang || 'N/A'}</td> {/* Thêm hiển thị tình trạng */}
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{xe.price ? `${xe.price.toLocaleString()}đ/giờ` : 'N/A'}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
@@ -259,6 +261,7 @@ function VehicleModal({ open, onClose, isCreating, isViewOnly, selectedXe }) {
     weightKg: null,
     dungLuongPinWh: null,
     pinTieuThuPerKm: null,
+    tinhTrang: '', // Thêm trường tình trạng mới
   });
 
   useEffect(() => {
@@ -281,6 +284,7 @@ function VehicleModal({ open, onClose, isCreating, isViewOnly, selectedXe }) {
         weightKg: selectedXe.weightKg || null,
         dungLuongPinWh: selectedXe.dungLuongPinWh || null,
         pinTieuThuPerKm: selectedXe.pinTieuThuPerKm || null,
+        tinhTrang: selectedXe.tinhTrang || '', // Thêm trường tình trạng mới
       });
     } else {
       setFormData({
@@ -301,6 +305,7 @@ function VehicleModal({ open, onClose, isCreating, isViewOnly, selectedXe }) {
         weightKg: null,
         dungLuongPinWh: null,
         pinTieuThuPerKm: null,
+        tinhTrang: '', // Thêm trường tình trạng mới
       });
     }
   }, [isCreating, selectedXe, open]);
@@ -443,6 +448,10 @@ function VehicleModal({ open, onClose, isCreating, isViewOnly, selectedXe }) {
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pin tiêu thụ/km</label>
               <input name="pinTieuThuPerKm" type="number" step="0.1" value={formData.pinTieuThuPerKm || ''} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white" disabled={isViewOnly} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tình trạng</label> {/* Thêm input cho tình trạng */}
+              <input name="tinhTrang" value={formData.tinhTrang} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white" disabled={isViewOnly} />
             </div>
           </div>
           <div className="mt-6 flex justify-end gap-3">

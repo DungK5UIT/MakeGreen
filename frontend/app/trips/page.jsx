@@ -7,28 +7,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import Link from 'next/link';
 
-// Custom icons - cập nhật đường dẫn theo /public/images
-const vehicleIcon = L.icon({
-  iconUrl: '/images/trips/motorcycle.png', // Icon xe máy
-  iconSize: [32, 32],
-  iconAnchor: [16, 32],
-  popupAnchor: [0, -32],
-  shadowSize: [41, 41],
-});
-
-const startIcon = L.icon({
-  iconUrl: '/images/trips/green-flag.png', // Cờ xanh lá cho điểm đi
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [0, -41],
-});
-
-const endIcon = L.icon({
-  iconUrl: '/images/trips/red-flag.png', // Cờ đỏ cho điểm đến
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [0, -41],
-});
+// ✨ SỬA LỖI: Xóa các định nghĩa icon khỏi đây để tránh lỗi SSR
 
 // Hàm tính khoảng cách Haversine
 function haversineDistance(coords1, coords2) {
@@ -36,8 +15,8 @@ function haversineDistance(coords1, coords2) {
   const dLat = (coords2[0] - coords1[0]) * Math.PI / 180;
   const dLng = (coords2[1] - coords1[1]) * Math.PI / 180;
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(coords1[0] * Math.PI / 180) * Math.cos(coords2[0] * Math.PI / 180) *
-            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+          Math.cos(coords1[0] * Math.PI / 180) * Math.cos(coords2[0] * Math.PI / 180) *
+          Math.sin(dLng / 2) * Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -90,6 +69,29 @@ function MapController({ position, path, tramThuePosition, tramTraPosition }) {
 }
 
 export default function TripTrackingPage() {
+  // ✨ SỬA LỖI: Di chuyển các định nghĩa icon VÀO BÊN TRONG component
+  const vehicleIcon = L.icon({
+    iconUrl: '/images/trips/motorcycle.png',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32],
+    shadowSize: [41, 41],
+  });
+
+  const startIcon = L.icon({
+    iconUrl: '/images/trips/green-flag.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [0, -41],
+  });
+
+  const endIcon = L.icon({
+    iconUrl: '/images/trips/red-flag.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [0, -41],
+  });
+  
   const [tripData, setTripData] = useState({
     vehicleName: "",
     licensePlate: "",
@@ -112,14 +114,13 @@ export default function TripTrackingPage() {
   const [path, setPath] = useState([]);
   const [loading, setLoading] = useState(true);
   const [noTrip, setNoTrip] = useState(false);
-  const [isTripStarted, setIsTripStarted] = useState(false); // State to track if trip has started
+  const [isTripStarted, setIsTripStarted] = useState(false);
   const channelsRef = useRef({ lichSuChannel: null, viTriChannel: null });
   const markerRef = useRef(null);
   const isAutoCompletingRef = useRef(false);
 
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
-  // Structured logging function with improved formatting
   const logMessage = (type, message, details = {}) => {
     const timestamp = new Date().toISOString();
     const typeColor = type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : type === 'info' ? '#3b82f6' : '#f59e0b';
@@ -132,14 +133,12 @@ export default function TripTrackingPage() {
     );
   };
 
-  // Fallback function để hoàn thành chuyến đi bằng Supabase nếu API không hoạt động
   const completeTripWithSupabase = async (chuyenDiId, pathData) => {
     try {
-      // Fetch chi_phi_uoc_tinh from don_thue
       const { data: donThueData, error: donThueError } = await supabase
         .from('don_thue')
         .select('chi_phi_uoc_tinh')
-        .eq('id', tripData.don_thue_id)  // Assuming tripData has don_thue_id
+        .eq('id', tripData.don_thue_id)
         .single();
 
       if (donThueError || !donThueData) throw donThueError || new Error('DonThue not found');
@@ -180,10 +179,9 @@ export default function TripTrackingPage() {
     }
   };
 
-  // Gọi API để hoàn thành chuyến đi, fallback sang Supabase nếu API fail
   const completeTripAPI = async (chuyenDiId, pathData) => {
     try {
-      const response = await fetch(`/api/chuyen-di/${chuyenDiId}/complete`, {
+      const response = await fetch(`http://localhost:8080/api/chuyen-di/${chuyenDiId}/complete`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: pathData }),
@@ -204,7 +202,6 @@ export default function TripTrackingPage() {
     }
   };
 
-  // Fallback function để ghi sự cố bằng Supabase nếu API không hoạt động
   const reportIssueWithSupabase = async (xeId, nguoiBaoCaoId, mucDo, moTa) => {
     try {
       const { data, error } = await supabase
@@ -228,7 +225,6 @@ export default function TripTrackingPage() {
     }
   };
 
-  // Hàm tự động kết thúc chuyến
   const autoCompleteTrip = useCallback(async () => {
     if (isAutoCompletingRef.current) {
       logMessage('info', 'Auto complete already in progress, skipping', { chuyenDiId: tripData.chuyen_di_id });
@@ -276,7 +272,6 @@ export default function TripTrackingPage() {
     isAutoCompletingRef.current = false;
   }, [tripData.chuyen_di_id, tripData.isCompleted, tripData.distance, tripData.totalDistance, path]);
 
-  // useEffect theo dõi distance và totalDistance để kiểm tra auto complete
   useEffect(() => {
     logMessage('info', 'Monitoring distance for auto complete', {
       distance: tripData.distance,
@@ -292,7 +287,6 @@ export default function TripTrackingPage() {
     }
   }, [tripData.distance, tripData.totalDistance, tripData.isCompleted, tripData.chuyen_di_id, autoCompleteTrip]);
 
-  // Fetch và subscribe realtime
   useEffect(() => {
     const fetchAndSubscribe = async () => {
       setLoading(true);
@@ -307,7 +301,7 @@ export default function TripTrackingPage() {
 
       const { data: chuyenDiData, error: chuyenError } = await supabase
         .from('chuyen_di')
-        .select('*, don_thue!chuyen_di_don_thue_id_fkey(tram_thue_id, tram_tra_id, chi_phi_uoc_tinh)')
+        .select('*, donThue:don_thue(tram_thue_id, tram_tra_id, chi_phi_uoc_tinh)')
         .eq('nguoi_dung_id', user.id)
         .eq('trang_thai', 'PENDING')
         .single();
@@ -354,22 +348,24 @@ export default function TripTrackingPage() {
 
       let tramThuePosition = null;
       let tramTraPosition = null;
-      if (chuyenDiData.don_thue?.tram_thue_id) {
+      
+      if (chuyenDiData.donThue?.tram_thue_id) {
         const { data: tramThueData } = await supabase
           .from('tram')
           .select('lat, lng, ten')
-          .eq('id', chuyenDiData.don_thue.tram_thue_id)
+          .eq('id', chuyenDiData.donThue.tram_thue_id)
           .single();
         if (tramThueData) {
           tramThuePosition = [Number(tramThueData.lat), Number(tramThueData.lng)];
           logMessage('success', 'Fetched tram thue position', { position: tramThuePosition });
         }
       }
-      if (chuyenDiData.don_thue?.tram_tra_id) {
+      
+      if (chuyenDiData.donThue?.tram_tra_id) {
         const { data: tramTraData } = await supabase
           .from('tram')
           .select('lat, lng, ten')
-          .eq('id', chuyenDiData.don_thue.tram_tra_id)
+          .eq('id', chuyenDiData.donThue.tram_tra_id)
           .single();
         if (tramTraData) {
           tramTraPosition = [Number(tramTraData.lat), Number(tramTraData.lng)];
@@ -392,7 +388,6 @@ export default function TripTrackingPage() {
         totalDistance,
       }));
 
-      // Luôn set vị trí xe mặc định là tram_thue khi load trang
       if (tramThuePosition) {
         const { data: viTriData, error: viTriError } = await supabase
           .from('vi_tri_xe')
@@ -404,7 +399,7 @@ export default function TripTrackingPage() {
             toc_do: 0,
             so_km: 0,
             cap_nhat_luc: new Date().toISOString(),
-          }, { onConflict: 'xe_id' })  // Giả sử unique constraint trên xe_id
+          }, { onConflict: 'xe_id' })
           .select()
           .single();
 
@@ -437,7 +432,6 @@ export default function TripTrackingPage() {
         return;
       }
 
-      // Load lich_su_vi_tri nếu có, nhưng vì mặc định reset, có lẽ xóa nếu chưa start
       const { data: lichSuData, error: lichSuError } = await supabase
         .from('lich_su_vi_tri')
         .select('lat, lng, pin, toc_do, so_km, cap_nhat_luc')
@@ -542,7 +536,6 @@ export default function TripTrackingPage() {
     fetchAndSubscribe();
   }, []);
 
-  // Hàm bắt đầu chuyến đi
   const startTrip = async () => {
     if (isTripStarted) {
       logMessage('info', 'Trip already started', { chuyenDiId: tripData.chuyen_di_id });
@@ -556,7 +549,6 @@ export default function TripTrackingPage() {
       return;
     }
 
-    // Reset vi_tri_xe về tram_thue_position (dù đã set mặc định, nhưng để chắc chắn)
     const resetPosition = tripData.tram_thue_position;
     try {
       const { error: updateError } = await supabase
@@ -573,7 +565,6 @@ export default function TripTrackingPage() {
 
       if (updateError) throw updateError;
 
-      // Insert lich_su_vi_tri đầu tiên nếu chưa có
       const { data: existingLichSu } = await supabase
         .from('lich_su_vi_tri')
         .select('*')
@@ -593,7 +584,6 @@ export default function TripTrackingPage() {
           });
       }
 
-      // Cập nhật state local để bản đồ refresh
       setTripData(prev => ({
         ...prev,
         position: resetPosition,
@@ -602,7 +592,7 @@ export default function TripTrackingPage() {
         speed: 0,
         remainingKm: prev.range_km,
       }));
-      setPath([resetPosition]);  // Reset path về chỉ cờ xanh
+      setPath([resetPosition]);
 
       setIsTripStarted(true);
       logMessage('success', 'Trip started and position reset to tram_thue', { position: resetPosition });
@@ -613,24 +603,22 @@ export default function TripTrackingPage() {
     }
   };
 
-  // Mô phỏng dữ liệu - chỉ chạy khi chuyến đi đã bắt đầu
   useEffect(() => {
     if (!isTripStarted || !tripData.chuyen_di_id || tripData.isCompleted || !tripData.tram_thue_position || !tripData.tram_tra_position) return;
 
     const interval = setInterval(async () => {
       const prevDistance = tripData.distance;
       const progress = prevDistance / tripData.totalDistance;
-      const newDistance = Math.min(prevDistance + (Math.random() * 0.3), tripData.totalDistance); // Tăng 0.2-0.5 km
+      const newDistance = Math.min(prevDistance + (Math.random() * 0.3), tripData.totalDistance);
       const deltaKm = newDistance - prevDistance;
-      const newSpeed = 15 + Math.random() * 15; // Tốc độ 15-30 km/h
+      const newSpeed = 15 + Math.random() * 15;
       const pinGiam = (deltaKm / 100) * tripData.pin_tieu_thu_per_km;
       const newBattery = Math.max(20, tripData.battery - pinGiam);
       const newRemainingKm = Math.round((newBattery / 100) * tripData.range_km);
 
-      // Di chuyển tuyến tính từ tram_thue đến tram_tra
       const deltaLat = (tripData.tram_tra_position[0] - tripData.tram_thue_position[0]) * (deltaKm / tripData.totalDistance);
       const deltaLng = (tripData.tram_tra_position[1] - tripData.tram_thue_position[1]) * (deltaKm / tripData.totalDistance);
-      const newLat = tripData.position[0] + deltaLat + (Math.random() * 0.0002 - 0.0001); // Nhiễu nhỏ
+      const newLat = tripData.position[0] + deltaLat + (Math.random() * 0.0002 - 0.0001);
       const newLng = tripData.position[1] + deltaLng + (Math.random() * 0.0002 - 0.0001);
 
       await supabase
@@ -672,12 +660,11 @@ export default function TripTrackingPage() {
         battery: newBattery,
         remainingKm: newRemainingKm,
       }));
-    }, 2000); // Cập nhật mỗi 2s
+    }, 2000);
 
     return () => clearInterval(interval);
   }, [isTripStarted, tripData.distance, tripData.battery, tripData.position, tripData.chuyen_di_id, tripData.xe_id, tripData.pin_tieu_thu_per_km, tripData.range_km, tripData.isCompleted, tripData.totalDistance, tripData.tram_thue_position, tripData.tram_tra_position]);
 
-  // Animate marker
   useEffect(() => {
     if (markerRef.current) {
       markerRef.current.setLatLng(tripData.position);
@@ -687,7 +674,6 @@ export default function TripTrackingPage() {
     }
   }, [tripData.position]);
 
-  // Kết thúc chuyến thủ công
   const endTrip = async () => {
     if (tripData.isCompleted) {
       logMessage('info', 'Trip already completed', { chuyenDiId: tripData.chuyen_di_id });
@@ -710,13 +696,11 @@ export default function TripTrackingPage() {
     }
   };
 
-  // Hàm liên hệ hỗ trợ
   const contactSupport = () => {
     logMessage('info', 'Contact support initiated', { userId: tripData.nguoi_dung_id });
     alert('Đang kết nối với bộ phận hỗ trợ khách hàng...\nHotline: 1900-1234');
   };
 
-  // Hàm báo sự cố với fallback sang Supabase
   const reportIssue = async () => {
     if (tripData.isCompleted) {
       logMessage('info', 'Cannot report issue, trip already completed', { chuyenDiId: tripData.chuyen_di_id });
@@ -773,7 +757,6 @@ export default function TripTrackingPage() {
 
           alert(`Đã ghi nhận sự cố: ${moTa}\nChúng tôi sẽ liên hệ với bạn sớm nhất.`);
 
-          // Tự động hoàn thành chuyến đi sau khi báo sự cố thành công
           const completeSuccess = await completeTripAPI(tripData.chuyen_di_id, path);
           if (completeSuccess) {
             if (channelsRef.current.lichSuChannel) supabase.removeChannel(channelsRef.current.lichSuChannel);
@@ -799,7 +782,6 @@ export default function TripTrackingPage() {
     }
   };
 
-  // Giao diện khi không có chuyến đi hoặc chuyến đi đã hoàn thành
   if (noTrip || tripData.isCompleted) {
     return (
       <div className="bg-gray-50 min-h-screen font-inter flex items-center justify-center px-4">
@@ -831,7 +813,6 @@ export default function TripTrackingPage() {
     );
   }
 
-  // Giao diện loading
   if (loading) {
     return (
       <div className="bg-gray-50 min-h-screen font-inter flex items-center justify-center px-4">
@@ -848,7 +829,6 @@ export default function TripTrackingPage() {
 
   return (
     <div className="bg-gray-50 min-h-screen font-inter">
-      {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-100">
         <div className="flex items-center justify-between px-4 py-3">
           <Link href="/">
@@ -867,8 +847,6 @@ export default function TripTrackingPage() {
           </button>
         </div>
       </div>
-
-      {/* Trip Info */}
       <div className="bg-white mx-4 mt-4 rounded-xl shadow-sm border border-gray-100 p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-3">
@@ -887,7 +865,6 @@ export default function TripTrackingPage() {
             <p className="text-xs text-gray-500">Bắt đầu</p>
           </div>
         </div>
-
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-xs text-gray-500 mb-1">Quãng đường đã đi</p>
@@ -898,7 +875,6 @@ export default function TripTrackingPage() {
             <p className="text-lg font-semibold text-gray-900">{tripData.totalDistance} km</p>
           </div>
         </div>
-
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-xs text-gray-500 mb-1">Tốc độ</p>
@@ -911,7 +887,6 @@ export default function TripTrackingPage() {
             </p>
           </div>
         </div>
-
         <div className="bg-gray-50 rounded-lg p-3">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs text-gray-500">Mức pin</p>
@@ -926,8 +901,6 @@ export default function TripTrackingPage() {
           <p className="text-xs text-gray-500 mt-1">Còn khoảng {tripData.remainingKm}km</p>
         </div>
       </div>
-
-      {/* Map */}
       <div className="mx-4 mt-4 rounded-xl overflow-hidden shadow-sm border border-gray-100 h-[60vh]">
         <MapContainer center={tripData.position} zoom={15} className="w-full h-full">
           <TileLayer
@@ -991,8 +964,6 @@ export default function TripTrackingPage() {
           )}
         </MapContainer>
       </div>
-
-      {/* Control Panel */}
       <div className="bg-white mx-4 mt-4 mb-6 rounded-xl shadow-sm border border-gray-100 p-4">
         <div className="grid grid-cols-4 gap-3">
           <button

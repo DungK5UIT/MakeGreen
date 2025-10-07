@@ -25,7 +25,7 @@ public class XeService {
 
     // Create: Tạo xe mới
     @Transactional
-    public Xe taoXe(String bienSo, String trangThai, Integer pinPhanTram, Double soKm, String name, String brand, String model, Integer rangeKm, Integer topSpeedKmh, String battery, Double price, Double deposit, Double rating, String chargeTime, Integer weightKg, Integer dungLuongPinWh, Double pinTieuThuPerKm) {
+    public Xe taoXe(String bienSo, String trangThai, Integer pinPhanTram, Double soKm, String name, String brand, String model, Integer rangeKm, Integer topSpeedKmh, String battery, Double price, Double deposit, Double rating, String chargeTime, Integer weightKg, Integer dungLuongPinWh, Double pinTieuThuPerKm, String tinhTrang) {
         Xe xe = Xe.builder()
                 .bienSo(bienSo)
                 .trangThai(trangThai)
@@ -44,6 +44,7 @@ public class XeService {
                 .weightKg(weightKg)
                 .dungLuongPinWh(dungLuongPinWh)
                 .pinTieuThuPerKm(pinTieuThuPerKm)
+                .tinhTrang(tinhTrang)
                 .build();
 
         Xe savedXe = xeRepository.save(xe);
@@ -75,7 +76,7 @@ public class XeService {
 
     // Update: Cập nhật xe
     @Transactional
-    public Xe capNhatXe(UUID id, String bienSo, String trangThai, Integer pinPhanTram, Double soKm, String name, String brand, String model, Integer rangeKm, Integer topSpeedKmh, String battery, Double price, Double deposit, Double rating, String chargeTime, Integer weightKg, Integer dungLuongPinWh, Double pinTieuThuPerKm) {
+    public Xe capNhatXe(UUID id, String bienSo, String trangThai, Integer pinPhanTram, Double soKm, String name, String brand, String model, Integer rangeKm, Integer topSpeedKmh, String battery, Double price, Double deposit, Double rating, String chargeTime, Integer weightKg, Integer dungLuongPinWh, Double pinTieuThuPerKm, String tinhTrang) {
         Xe xe = xeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Xe not found with id: " + id));
 
@@ -129,6 +130,10 @@ public class XeService {
         }
         if (pinTieuThuPerKm != null) {
             xe.setPinTieuThuPerKm(pinTieuThuPerKm);
+        }
+        
+        if (tinhTrang != null) {
+            xe.setTinhTrang(tinhTrang);
         }
 
         Xe updatedXe = xeRepository.save(xe);

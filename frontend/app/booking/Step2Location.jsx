@@ -9,7 +9,8 @@ const Step2Location = ({
   setSameLocation,
   selectedPreset,
   setSelectedPreset,
-  tramList,
+  vehicleTramList,
+  allTramList,
 }) => {
   const handleSameChange = (e) => {
     setSameLocation(e.target.checked);
@@ -24,6 +25,10 @@ const Step2Location = ({
     setSelectedPreset(tramId);
     if (sameLocation) {
       setReturnTramId(tramId);
+    }
+    // Nếu trạm trả đang trùng với trạm nhận cũ, reset nó
+    if (returnTramId === tramId) {
+      setReturnTramId('');
     }
   };
 
@@ -56,7 +61,7 @@ const Step2Location = ({
               <option value="" disabled>
                 Chọn trạm nhận xe
               </option>
-              {tramList.map((tram) => (
+              {vehicleTramList.map((tram) => (
                 <option key={tram.id} value={tram.id}>
                   {tram.ten} - {tram.dia_chi}
                 </option>
@@ -82,18 +87,21 @@ const Step2Location = ({
             <select
               value={returnTramId || ''}
               onChange={handleReturnChange}
-              disabled={sameLocation}
+              disabled={sameLocation || !pickupTramId}
               className={`w-full px-4 py-3 pl-10 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${
-                sameLocation ? 'bg-gray-100' : ''
+                sameLocation || !pickupTramId ? 'bg-gray-100' : ''
               }`}
             >
               <option value="" disabled>
-                Chọn trạm trả xe
+                {pickupTramId ? 'Chọn trạm trả xe' : 'Vui lòng chọn trạm nhận xe trước'}
               </option>
-              {tramList.map((tram) => (
-                <option key={tram.id} value={tram.id}>
-                  {tram.ten} - {tram.dia_chi}
-                </option>
+              {/* ✨ SỬA: Lọc danh sách trạm trả để loại bỏ trạm đã chọn làm điểm nhận */}
+              {allTramList
+                .filter(tram => tram.id !== pickupTramId)
+                .map((tram) => (
+                  <option key={tram.id} value={tram.id}>
+                    {tram.ten} - {tram.dia_chi}
+                  </option>
               ))}
             </select>
             <svg
@@ -116,6 +124,7 @@ const Step2Location = ({
             className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
             checked={sameLocation}
             onChange={handleSameChange}
+            disabled={!pickupTramId}
           />
           <label htmlFor="same-location" className="ml-2 text-sm text-gray-700">
             Trả xe tại cùng trạm nhận xe

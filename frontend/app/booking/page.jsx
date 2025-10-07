@@ -40,7 +40,9 @@ const BookingPage = () => {
   const [returnTramId, setReturnTramId] = useState('');
   const [sameLocation, setSameLocation] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState(null);
-  const [tramList, setTramList] = useState([]);
+  
+  const [vehicleTramList, setVehicleTramList] = useState([]); // Chỉ các trạm xe đang đỗ
+  const [allTramList, setAllTramList] = useState([]);       // Tất cả các trạm đang hoạt động
 
   const [customerInfo, setCustomerInfo] = useState({
     fullName: '',
@@ -63,76 +65,63 @@ const BookingPage = () => {
   const backIDRef = useRef(null);
   const gplxRef = useRef(null);
 
-      // ✅ TỐI ƯU: Gộp tất cả logic tải dữ liệu ban đầu vào một useEffect duy nhất
-    useEffect(() => {
-        // Nếu không có vehicleId, chuyển hướng ngay lập tức
-        if (!vehicleId) {
-            console.log('DEBUG: No vehicleId provided, redirecting to /vehicles');
-            router.push('/vehicles');
-            return;
-        }
+  useEffect(() => {
+    if (!vehicleId) {
+        console.log('DEBUG: No vehicleId provided, redirecting to /vehicles');
+        router.push('/vehicles');
+        return;
+    }
 
-        const fetchInitialData = async () => {
-            setLoading(true);
-            setError(''); // Xóa lỗi cũ khi tải lại
+    const fetchInitialData = async () => {
+        setLoading(true);
+        setError('');
 
-            try {
-                console.log('DEBUG: Starting fetchInitialData for vehicleId:', vehicleId);
+        try {
+            console.log('DEBUG: Starting fetchInitialData for vehicleId:', vehicleId);
 
-                // --- Bắt đầu tải thông tin xe ---
-                console.log('DEBUG: Fetching vehicle data from "xe" table');
-                const { data: vehicleData, error: vehicleError } = await supabase
-                    .from('xe')
-                    .select('*')
-                    .eq('id', vehicleId)
-                    .single();
+            const { data: vehicleData, error: vehicleError } = await supabase
+                .from('xe')
+                .select('*')
+                .eq('id', vehicleId)
+                .single();
 
-                if (vehicleError) {
-                    console.error('DEBUG: Vehicle fetch error:', vehicleError);
-                    throw new Error('Không tìm thấy xe hoặc có lỗi khi tải thông tin xe: ' + vehicleError.message);
-                }
-                
-                console.log('DEBUG: Vehicle data fetched successfully:', vehicleData);
-                setVehicle({
-                    ...vehicleData,
-                    price: Number(vehicleData.price) || 0,
-                    deposit: Number(vehicleData.deposit) || 0,
-                    rating: Number(vehicleData.rating) || 0,
-                    range_km: Number(vehicleData.range_km) || 0,
-                    top_speed_kmh: Number(vehicleData.top_speed_kmh) || 0,
-                    weight_kg: Number(vehicleData.weight_kg) || 0,
-                    so_km: Number(vehicleData.so_km) || 0,
-                    pin_phan_tram: Number(vehicleData.pin_phan_tram) || 0,
-                });
+            if (vehicleError) {
+                console.error('DEBUG: Vehicle fetch error:', vehicleError);
+                throw new Error('Không tìm thấy xe hoặc có lỗi khi tải thông tin xe: ' + vehicleError.message);
+            }
+            
+            console.log('DEBUG: Vehicle data fetched successfully:', vehicleData);
+            setVehicle({
+                ...vehicleData,
+                price: Number(vehicleData.price) || 0,
+                deposit: Number(vehicleData.deposit) || 0,
+                rating: Number(vehicleData.rating) || 0,
+                range_km: Number(vehicleData.range_km) || 0,
+                top_speed_kmh: Number(vehicleData.top_speed_kmh) || 0,
+                weight_kg: Number(vehicleData.weight_kg) || 0,
+                so_km_da_di: Number(vehicleData.so_km_da_di) || 0,
+                pin_phan_tram: Number(vehicleData.pin_phan_tram) || 0,
+            });
 
-                // --- Bắt đầu tải danh sách trạm ---
-                // Bước 1: Lấy ID các trạm liên quan
-                console.log('DEBUG: Fetching associated trams from "Tram_Xe" table for xe_id:', vehicleId);
-                const { data: associatedTrams, error: assocError } = await supabase
-                    .from('Tram_Xe')
-                    .select('tram_id')
-                    .eq('xe_id', vehicleId);
+            // --- Bắt đầu tải danh sách trạm ---
+            // Bước 1: Lấy ID các trạm liên quan đến XE (danh sách cho trạm NHẬN)
+            const { data: associatedTrams, error: assocError } = await supabase
+                .from('tram_xe')
+                .select('tram_id')
+                .eq('xe_id', vehicleId);
 
-                if (assocError) {
-                    console.error('DEBUG: Associated trams fetch error:', assocError);
-                    throw new Error('Lỗi khi tìm các trạm liên kết: ' + assocError.message);
-                }
+            if (assocError) {
+                console.error('DEBUG: Associated trams fetch error:', assocError);
+                throw new Error('Lỗi khi tìm các trạm liên kết: ' + assocError.message);
+            }
 
-                console.log('DEBUG: Associated trams data:', associatedTrams);
-                const tramIds = associatedTrams.map(a => a.tram_id);
-                console.log('DEBUG: Extracted tramIds:', tramIds);
+            const tramIds = associatedTrams.map(a => a.tram_id);
 
-                // Nếu xe không thuộc trạm nào, dừng lại và báo lỗi
-                if (tramIds.length === 0) {
-                    console.log('DEBUG: No associated trams found for this vehicle');
-                    setTramList([]);
-                    setError('Xe này hiện không được gán cho bất kỳ trạm nào.');
-                    return; // Dừng thực thi
-                }
-
-                // Bước 2: Lấy thông tin các trạm đang hoạt động từ danh sách ID
-                console.log('DEBUG: Fetching active trams from "tram" table for ids:', tramIds);
-                const { data: activeTrams, error: tramsError } = await supabase
+            if (tramIds.length === 0) {
+                setVehicleTramList([]);
+                setError('Xe này hiện không được gán cho bất kỳ trạm nào.');
+            } else {
+                const { data: activeVehicleTrams, error: tramsError } = await supabase
                     .from('tram')
                     .select('id, ten, dia_chi, trang_thai')
                     .in('id', tramIds)
@@ -142,35 +131,44 @@ const BookingPage = () => {
                     console.error('DEBUG: Active trams fetch error:', tramsError);
                     throw new Error('Lỗi khi tải chi tiết các trạm: ' + tramsError.message);
                 }
-
-                console.log('DEBUG: Active trams data:', activeTrams);
-
-                // ✅ SỬA: Xử lý trường hợp không có trạm nào đang hoạt động
-                if (activeTrams.length === 0) {
-                    console.log('DEBUG: No active trams found');
-                    setTramList([]);
+                
+                if (activeVehicleTrams.length === 0) {
                     setError('Xe này hiện không có sẵn tại bất kỳ trạm nào đang hoạt động.');
+                    setVehicleTramList([]);
                 } else {
-                    console.log('DEBUG: Setting tramList with', activeTrams.length, 'active trams');
-                    setTramList(activeTrams);
+                    setVehicleTramList(activeVehicleTrams);
                 }
-
-            } catch (err) {
-                console.error('DEBUG: Full error in fetchInitialData:', err.message, err.stack);
-                setError(err.message);
-                setVehicle(null);
-                setTramList([]);
-            } finally {
-                // Đảm bảo loading luôn được tắt sau khi hoàn thành hoặc có lỗi
-                console.log('DEBUG: fetchInitialData completed, setting loading to false');
-                setLoading(false);
             }
-        };
 
-        fetchInitialData();
-    }, [vehicleId, router]);
+            // Bước 2: Lấy TOÀN BỘ các trạm đang hoạt động (danh sách cho trạm TRẢ)
+            console.log('DEBUG: Fetching ALL active trams from "tram" table');
+            const { data: allActiveTrams, error: allTramsError } = await supabase
+                .from('tram')
+                .select('id, ten, dia_chi')
+                .eq('trang_thai', 'hoat_dong');
 
-  // ✅ SỬA: XỬ LÝ LỖI AuthSessionMissingError — KHÔNG ĐỂ CRASH
+            if (allTramsError) {
+                throw new Error('Lỗi khi tải danh sách tất cả các trạm: ' + allTramsError.message);
+            }
+            
+            console.log('DEBUG: All active trams data:', allActiveTrams);
+            setAllTramList(allActiveTrams);
+
+        } catch (err) {
+            console.error('DEBUG: Full error in fetchInitialData:', err.message, err.stack);
+            setError(err.message);
+            setVehicle(null);
+            setVehicleTramList([]);
+            setAllTramList([]);
+        } finally {
+            console.log('DEBUG: fetchInitialData completed, setting loading to false');
+            setLoading(false);
+        }
+    };
+
+    fetchInitialData();
+  }, [vehicleId, router]);
+
   const checkAuth = async () => {
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -219,7 +217,6 @@ const BookingPage = () => {
   useEffect(() => {
     checkAuth();
 
-    // ✅ SỬA: Lấy subscription đúng cách
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state change:', event, 'Session:', session);
       if (event === 'SIGNED_IN' && session?.user) {
@@ -239,7 +236,6 @@ const BookingPage = () => {
       }
     });
 
-    // ✅ SỬA: Hủy đăng ký an toàn
     return () => {
       if (subscription) {
         subscription.unsubscribe();
@@ -247,7 +243,6 @@ const BookingPage = () => {
     };
   }, []);
 
-  // Tính tổng tiền
   useEffect(() => {
     if (vehicle && pickupDate && returnDate) {
       const d1 = new Date(pickupDate);
@@ -264,7 +259,6 @@ const BookingPage = () => {
     }
   }, [vehicle, pickupDate, returnDate]);
 
-  // Xử lý callback VNPay
   useEffect(() => {
     const status = searchParams.get('status');
     const message = searchParams.get('message');
@@ -350,7 +344,6 @@ const BookingPage = () => {
     }
   }, [pickupTramId, sameLocation]);
 
-  // Bỏ qua bước 3 và 4 nếu đã verified
   useEffect(() => {
     if (isVerified && (currentStep === 3 || currentStep === 4)) {
       console.log('Bỏ qua bước', currentStep, 'vì đã verified (ACTIVE)');
@@ -425,7 +418,6 @@ const BookingPage = () => {
     }
   };
 
-  // ✅ SỬA: XỬ LÝ LỖI AuthSessionMissingError TRONG submitBooking
   const submitBooking = async () => {
     setLoading(true);
     setError('');
@@ -450,12 +442,10 @@ const BookingPage = () => {
         throw new Error('Thiếu trạm nhận/trả xe.');
       }
 
-      // ✅ SỬA: DÙNG getSession() thay vì getUser() để tránh lỗi AuthSessionMissingError
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
       let nguoi_dung_id = session?.user?.id;
 
-      // Nếu không có session → tạo anonymous
       if (!session?.user) {
         console.log('Không tìm thấy người dùng, tạo tài khoản anonymous');
         const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
@@ -498,7 +488,6 @@ const BookingPage = () => {
           }
         }
       } else {
-        // Dùng user thật
         console.log('Tìm thấy người dùng, ID:', session.user.id);
         const updateFields = {
           ho_ten: customerInfo.fullName || undefined,
@@ -516,7 +505,6 @@ const BookingPage = () => {
 
       console.log('Sử dụng nguoi_dung_id:', nguoi_dung_id);
 
-      // Nếu đi qua bước 4 (EKYC), cập nhật trạng thái thành ACTIVE
       if (!isVerified && uploads.frontID && uploads.backID && uploads.gplx) {
         const { error: verifyError } = await supabase
           .from('nguoi_dung')
@@ -529,7 +517,6 @@ const BookingPage = () => {
       const batDauLuc = new Date(`${pickupDate}T${pickupTime}:00Z`);
       const ketThucLuc = new Date(`${returnDate}T${returnTime}:00Z`);
 
-      // Tìm xe bận
       const { data: busyXeData, error: busyXeError } = await supabase
         .from('don_thue')
         .select('xe_id')
@@ -544,12 +531,11 @@ const BookingPage = () => {
 
       const busyXeIds = busyXeData.map(row => row.xe_id);
 
-      // ✅ SỬA: Tìm xe khả dụng CHỈ VỚI vehicleId cụ thể
       let query = supabase
         .from('xe')
         .select('id')
         .eq('trang_thai', 'AVAILABLE')
-        .eq('id', vehicleId);  // Thêm filter theo vehicleId
+        .eq('id', vehicleId);
 
       if (busyXeIds.length > 0) {
         query = query.not('id', 'in', `(${busyXeIds.join(',')})`);
@@ -564,7 +550,6 @@ const BookingPage = () => {
         throw new Error('Xe không còn khả dụng tại thời gian này. Vui lòng chọn xe khác.');
       }
 
-      // Tính toán chi phí
       const days = Math.ceil((ketThucLuc - batDauLuc) / (1000 * 60 * 60 * 24));
       const deliveryFee = 50000;
       const insuranceFee = 100000;
@@ -572,12 +557,11 @@ const BookingPage = () => {
       const total = rentalPrice + deliveryFee + insuranceFee;
       setTotalAmount(total);
 
-      // Tạo đơn thuê
       const { data: booking, error: bookingError } = await supabase
         .from('don_thue')
         .insert({
           nguoi_dung_id,
-          xe_id: availableXe.id,  // Giờ chắc chắn là vehicleId
+          xe_id: availableXe.id,
           bat_dau_luc: batDauLuc.toISOString(),
           ket_thuc_luc: ketThucLuc.toISOString(),
           trang_thai: 'PENDING',
@@ -593,7 +577,6 @@ const BookingPage = () => {
         throw new Error('Lỗi tạo đơn thuê: ' + bookingError.message);
       }
 
-      // Ghi lại thanh toán
       const depositAmount = total * 0.5;
       const { error: paymentError } = await supabase
         .from('thanh_toan')
@@ -611,7 +594,6 @@ const BookingPage = () => {
         throw new Error('Lỗi tạo thanh toán: ' + paymentError.message);
       }
 
-      // Chuyển hướng VNPay
       if (selectedPayment === 'vnpay') {
         const headers = {
           'Content-Type': 'application/json',
@@ -641,7 +623,6 @@ const BookingPage = () => {
         return;
       }
 
-      // Xác nhận đơn (tiền mặt)
       const { error: confirmError } = await supabase
         .from('don_thue')
         .update({ trang_thai: 'CONFIRMED' })
@@ -657,12 +638,10 @@ const BookingPage = () => {
       setPaymentMessage('Thanh toán hoàn tất!');
       setCurrentStep(6);
       if (status === 'SUCCESS') {
-        // THÊM: Fetch xe status để confirm UI (optional, nếu cần hiển thị)
         const fetchXeStatus = async () => {
           const { data } = await supabase.from('xe').select('trang_thai').eq('id', vehicleId).single();
           if (data.trang_thai === 'UNAVAILABLE') {
             console.log('Xe is now UNAVAILABLE after payment');
-            // Có thể thêm toast thông báo
           }
         };
         fetchXeStatus();
@@ -728,7 +707,8 @@ const BookingPage = () => {
             setSameLocation={setSameLocation}
             selectedPreset={selectedPreset}
             setSelectedPreset={setSelectedPreset}
-            tramList={tramList}
+            vehicleTramList={vehicleTramList}
+            allTramList={allTramList}
           />
         );
       case 3:

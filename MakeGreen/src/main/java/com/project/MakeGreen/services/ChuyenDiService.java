@@ -4,12 +4,14 @@ import com.project.MakeGreen.dtos.ChuyenDiDto;
 import com.project.MakeGreen.models.ChuyenDi;
 import com.project.MakeGreen.models.DonThue;
 import com.project.MakeGreen.models.Tram;
+import com.project.MakeGreen.models.TramXe;
 import com.project.MakeGreen.models.ViTriXe;
 import com.project.MakeGreen.models.Xe;
 import com.project.MakeGreen.repositories.ChuyenDiRepository;
 import com.project.MakeGreen.repositories.DonThueRepository;
 import com.project.MakeGreen.repositories.LichSuViTriRepository;
 import com.project.MakeGreen.repositories.TramRepository;
+import com.project.MakeGreen.repositories.TramXeRepository;
 import com.project.MakeGreen.repositories.ViTriXeRepository;
 import com.project.MakeGreen.repositories.XeRepository;
 import org.slf4j.Logger;
@@ -46,6 +48,9 @@ public class ChuyenDiService {
 
     @Autowired
     private TramRepository tramRepository;
+    
+    @Autowired
+    private TramXeRepository tramXeRepository;
 
     // Create: Tạo chuyến đi mới
     @Transactional
@@ -124,63 +129,85 @@ public class ChuyenDiService {
      * @param path đường đi (dữ liệu GPX/GeoJSON hoặc chuỗi lưu lại hành trình)
      * @return ChuyenDi đã cập nhật
      */
+ // Trong file ChuyenDiService.java
+
+ // Trong file ChuyenDiService.java
+
     @Transactional
     public ChuyenDi completeChuyenDi(UUID chuyenDiId, String path) {
-        // Tìm chuyến đi
+        // 1. Tìm chuyến đi
         ChuyenDi chuyenDi = chuyenDiRepository.findById(chuyenDiId)
                 .orElseThrow(() -> new RuntimeException("ChuyenDi not found with id: " + chuyenDiId));
 
         if ("COMPLETED".equals(chuyenDi.getTrangThai())) {
-            throw new RuntimeException("ChuyenDi already completed");
+            logger.warn("Attempted to complete an already completed trip: {}", chuyenDiId);
+            return chuyenDi;
         }
 
-        // Lấy thông tin don_thue để lấy chi_phi_uoc_tinh và tram_tra
+        // 2. Lấy thông tin đơn thuê và xe
         DonThue donThue = donThueRepository.findById(chuyenDi.getDonThueId())
-                .orElseThrow(() -> new RuntimeException("DonThue not found with id: " + chuyenDi.getDonThueId()));
+                .orElseThrow(() -> new RuntimeException("DonThue not found for ChuyenDi id: " + chuyenDi.getDonThueId()));
 
-        // Cập nhật thông tin chuyến đi
+        Xe xe = xeRepository.findById(chuyenDi.getXeId())
+                .orElseThrow(() -> new RuntimeException("Xe not found with id: " + chuyenDi.getXeId()));
+
+        // 3. Cập nhật chuyến đi
         chuyenDi.setTrangThai("COMPLETED");
         chuyenDi.setKetThucLuc(ZonedDateTime.now());
         chuyenDi.setPath(path);
-        chuyenDi.setTongChiPhi(donThue.getChiPhiUocTinh() != null ? donThue.getChiPhiUocTinh().doubleValue() : null);
-        logger.info("Tong chi phi lay tu don_thue: {} cho chuyenDiId: {}", chuyenDi.getTongChiPhi(), chuyenDiId);
-
-        // Cập nhật trạng thái xe về AVAILABLE
-        Xe xe = xeRepository.findById(chuyenDi.getXeId())
-                .orElseThrow(() -> new RuntimeException("Xe not found with id: " + chuyenDi.getXeId()));
+        if (donThue.getChiPhiUocTinh() != null) {
+            chuyenDi.setTongChiPhi(donThue.getChiPhiUocTinh().doubleValue());
+        }
+        
+        // 4. Cập nhật trạng thái xe
         xe.setTrangThai("AVAILABLE");
         xeRepository.save(xe);
+        logger.info("Vehicle {} status updated to AVAILABLE.", xe.getId());
 
-        logger.info("Xe {} đã được cập nhật thành AVAILABLE sau khi kết thúc chuyến đi {}", xe.getId(), chuyenDi.getId());
+        // 5. Lấy thông tin trạm trả và cập nhật vị trí
+        if (donThue.getTramTra() != null) {
+            Tram tramTra = donThue.getTramTra();
 
-        // Lấy tram_tra
-        Tram tramTra = tramRepository.findById(donThue.getTramTra().getId())
-                .orElseThrow(() -> new RuntimeException("Tram tra not found with id: " + donThue.getTramTra().getId()));
+            // ========== BẮT ĐẦU SỬA LỖI ==========
+            // Logic đúng: Xóa liên kết cũ, flush, sau đó tạo liên kết mới.
 
-        // Cập nhật vi_tri_xe dựa trên tram_tra
-        ViTriXe viTriXe = viTriXeRepository.findByXe(xe)
-                .orElseThrow(() -> new RuntimeException("ViTriXe not found for xe: " + xe.getId()));
+            // 5.1. Xóa liên kết trạm cũ của xe và FLUSH NGAY LẬP TỨC
+            tramXeRepository.findByXe(xe).ifPresent(existingTramXe -> {
+                tramXeRepository.delete(existingTramXe);
+                tramXeRepository.flush(); // <-- THÊM DÒNG NÀY ĐỂ THỰC THI LỆNH DELETE NGAY
+                logger.info("Deleted old station link for vehicle {}.", xe.getId());
+            });
 
-        viTriXe.setLat(tramTra.getLat());
-        viTriXe.setLng(tramTra.getLng());
-        viTriXe.setPin(100);  // Giả sử pin đầy sau khi trả
-        viTriXe.setTocDo(0.0);
-        viTriXe.setSoKm(0.0);  // Reset số km hoặc giữ nguyên tùy logic
-        viTriXe.setCapNhatLuc(ZonedDateTime.now());
-        viTriXeRepository.save(viTriXe);
+            // 5.2. Tạo liên kết mới với trạm trả xe
+            TramXe newTramXe = new TramXe(xe, tramTra);
+            tramXeRepository.save(newTramXe);
+            logger.info("Created new station link for vehicle {} at return station {}.", xe.getId(), tramTra.getId());
+            // ========== KẾT THÚC SỬA LỖI ==========
+            
 
-        logger.info("ViTriXe đã được cập nhật từ don_thue's tram_tra cho xe {}", xe.getId());
+            // 5.3. Cập nhật vị trí GPS cuối cùng của xe trong "vi_tri_xe" cho nhất quán
+            ViTriXe viTriXe = viTriXeRepository.findByXe(xe)
+                .orElseGet(() -> ViTriXe.builder().xe(xe).build());
+            
+            viTriXe.setLat(tramTra.getLat());
+            viTriXe.setLng(tramTra.getLng());
+            viTriXe.setPin(100);
+            viTriXe.setTocDo(0.0);
+            viTriXe.setCapNhatLuc(ZonedDateTime.now());
+            viTriXeRepository.save(viTriXe);
+            logger.info("Final GPS location for vehicle {} updated to match return station.", xe.getId());
 
-        // Lưu lại thay đổi chuyến đi
+        } else {
+            logger.warn("Return station (TramTra object) is null for DonThue {}, skipping vehicle location updates.", donThue.getId());
+        }
+
+        // 6. Lưu lại chuyến đi và dọn dẹp
         ChuyenDi updatedChuyenDi = chuyenDiRepository.save(chuyenDi);
-
-        // Xoá lịch sử vị trí liên quan đến chuyến đi này
         lichSuViTriRepository.deleteByChuyenDiId(chuyenDiId);
-        logger.info("Đã xoá lịch sử vị trí cho chuyến đi {}", chuyenDiId);
+        logger.info("Deleted location history for completed trip {}", chuyenDiId);
 
         return updatedChuyenDi;
     }
-
     // Delete: Xóa chuyến đi
     @Transactional
     public void xoaChuyenDi(UUID id) {

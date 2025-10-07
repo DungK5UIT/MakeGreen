@@ -28,6 +28,7 @@ public class XeDto {
     private Integer weightKg;
     private Integer dungLuongPinWh;
     private Double pinTieuThuPerKm;
+    private String tinhTrang;
 
     // Thêm danh sách bảo trì DTO nếu cần
     private List<BaoTriDto> baoTris;
@@ -56,6 +57,7 @@ public class XeDto {
         dto.setWeightKg(xe.getWeightKg());
         dto.setDungLuongPinWh(xe.getDungLuongPinWh());
         dto.setPinTieuThuPerKm(xe.getPinTieuThuPerKm());
+        dto.setTinhTrang(xe.getTinhTrang());
 
         // Thêm bảo trì nếu cần
         if (xe.getBaoTris() != null) {

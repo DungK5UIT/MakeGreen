@@ -6,22 +6,49 @@ import VehicleCard from '@/components/VehicleCard';
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState([]);
+  const [stations, setStations] = useState([]);
   const [filters, setFilters] = useState({
     search: '',
     price: 'Tất cả',
     range: 'Tất cả',
-    battery: 'Tất cả'
+    battery: 'Tất cả',
+    tram: 'Tất cả'
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    const fetchStations = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('tram')
+          .select('id, ten')
+          .order('ten', { ascending: true });
+
+        if (error) throw error;
+        setStations(data || []);
+      } catch (err) {
+        console.error('Lỗi fetch trạm:', err);
+      }
+    };
+
+    fetchStations();
+  }, []);
+
+  useEffect(() => {
     const fetchVehicles = async () => {
       try {
         setLoading(true);
-        let query = supabase
-          .from('xe')
-          .select('*');
+        let query;
+        if (filters.tram !== 'Tất cả') {
+          query = supabase
+            .from('xe')
+            .select('*, tram_xe!inner(*)');
+        } else {
+          query = supabase
+            .from('xe')
+            .select('*');
+        }
 
         // Áp dụng bộ lọc tìm kiếm
         if (filters.search) {
@@ -53,6 +80,11 @@ export default function VehiclesPage() {
         // Áp dụng bộ lọc pin
         if (filters.battery !== 'Tất cả') {
           query = query.eq('battery', filters.battery);
+        }
+
+        // Áp dụng bộ lọc trạm
+        if (filters.tram !== 'Tất cả') {
+          query = query.eq('tram_xe.tram_id', filters.tram);
         }
 
         // Sắp xếp theo giá
@@ -96,7 +128,8 @@ export default function VehiclesPage() {
       search: '',
       price: 'Tất cả',
       range: 'Tất cả',
-      battery: 'Tất cả'
+      battery: 'Tất cả',
+      tram: 'Tất cả'
     });
   };
 
@@ -107,7 +140,7 @@ export default function VehiclesPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Search & Filter */}
       <div className="bg-white rounded-2xl card-shadow p-6 mb-8">
-        <div className="grid md:grid-cols-4 gap-4">
+        <div className="grid md:grid-cols-5 gap-4">
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-2">Tìm kiếm</label>
             <input 
@@ -158,6 +191,20 @@ export default function VehiclesPage() {
               <option>Tất cả</option>
               <option>Pin đổi được</option>
               <option>Pin cố định</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-2">Trạm</label>
+            <select 
+              name="tram"
+              value={filters.tram}
+              className="w-full px-4 py-2 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
+              onChange={handleFilterChange}
+            >
+              <option>Tất cả</option>
+              {stations.map(station => (
+                <option key={station.id} value={station.id}>{station.ten}</option>
+              ))}
             </select>
           </div>
         </div>

@@ -49,6 +49,7 @@ public class VNPayService {
 
     @Autowired
     private ChuyenDiRepository chuyenDiRepository;
+    
 
     public String createPaymentUrl(DonThue donThue, String ipAddress) throws UnsupportedEncodingException {
         if (donThue == null || donThue.getId() == null) {
@@ -178,6 +179,8 @@ public class VNPayService {
         }
     }
     
+ // Trong file VNPayService.java
+
     @Transactional
     public void processPaymentCallback(Map<String, String> params) {
         try {
@@ -210,21 +213,21 @@ public class VNPayService {
                 logger.info("Fetching xe for id: {}", donThue.getXe().getId());
                 Xe xe = xeRepository.findById(donThue.getXe().getId())
                         .orElseThrow(() -> new IllegalArgumentException("Xe not found: " + donThue.getXe().getId()));
+
                 xe.setTrangThai("UNAVAILABLE");
                 logger.info("Saving xe");
                 xeRepository.save(xe);
 
                 logger.info("Handling viTriXe for xe: {}", xe.getId());
-                viTriXeRepository.findByXe(xe).orElseGet(() -> {  // SỬA: findByXe thay vì findById
+                viTriXeRepository.findByXe(xe).orElseGet(() -> {
                     ViTriXe viTriXe = ViTriXe.builder()
-                            .xe(xe)  // SỬA: Thêm .xe(xe) để set xe_id
-                            // KHÔNG set .id() - để @UuidGenerator generate tự động
+                            .xe(xe)
                             .lat(0.0)
                             .lng(0.0)
                             .pin(100)
                             .tocDo(0.0)
                             .soKm(0.0)
-                            .capNhatLuc(ZonedDateTime.now())  // Thêm nếu cần
+                            .capNhatLuc(ZonedDateTime.now())
                             .build();
                     logger.info("Saving new viTriXe with generated ID");
                     return viTriXeRepository.save(viTriXe);
@@ -252,7 +255,7 @@ public class VNPayService {
             thanhToanRepository.save(thanhToan);
         } catch (Exception e) {
             logger.error("Exception in processPaymentCallback: {} - Stack: {}", e.getMessage(), e.getStackTrace());
-            throw e;  // Re-throw để catch ở controller
+            throw e;
         }
     }
 

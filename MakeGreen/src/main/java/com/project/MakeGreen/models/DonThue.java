@@ -42,9 +42,16 @@ public class DonThue {
     @Column(name = "chi_phi_uoc_tinh")
     private BigDecimal chiPhiUocTinh;
 
+    @Column(name = "tram_thue_id", insertable = false, updatable = false)
+    private UUID tramThueId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tram_thue_id", nullable = false)
     private Tram tramThue;
+
+    // Tương tự cho trạm trả xe, đây là phần sửa lỗi của bạn
+    @Column(name = "tram_tra_id", insertable = false, updatable = false)
+    private UUID tramTraId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tram_tra_id", nullable = false)
