@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Step1Time = ({ pickupDate, setPickupDate, pickupTime, setPickupTime, returnDate, setReturnDate, returnTime, setReturnTime, isValidDuration }) => {
+const Step1Time = ({ pickupDate, setPickupDate, pickupTime, setPickupTime, returnDate, setReturnDate, returnTime, setReturnTime, isValidDuration, bookedPeriods }) => {
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Chọn thời gian thuê xe</h2>
@@ -71,6 +71,19 @@ const Step1Time = ({ pickupDate, setPickupDate, pickupTime, setPickupTime, retur
           )}
         </div>
       </div>
+      {bookedPeriods.length > 0 && (
+        <div className="mt-6 p-4 bg-yellow-50 rounded-xl">
+          <h3 className="text-sm font-medium text-yellow-800 mb-2">Thời gian xe đã được thuê:</h3>
+          <ul className="list-disc pl-5 text-sm text-yellow-700">
+            {bookedPeriods.map((period, index) => (
+              <li key={index}>
+                Từ {period.start.toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })} đến {period.end.toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-sm text-yellow-600">Vui lòng chọn thời gian không trùng với các khoảng trên.</p>
+        </div>
+      )}
     </div>
   );
 };

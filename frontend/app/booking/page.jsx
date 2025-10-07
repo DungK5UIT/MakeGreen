@@ -43,6 +43,8 @@ const BookingPage = () => {
   
   const [vehicleTramList, setVehicleTramList] = useState([]); // Chỉ các trạm xe đang đỗ
   const [allTramList, setAllTramList] = useState([]);       // Tất cả các trạm đang hoạt động
+  const [bookedPeriods, setBookedPeriods] = useState([]);   // Các khoảng thời gian đã được thuê
+  const [isOverlap, setIsOverlap] = useState(false);
 
   const [customerInfo, setCustomerInfo] = useState({
     fullName: '',
@@ -154,12 +156,33 @@ const BookingPage = () => {
             console.log('DEBUG: All active trams data:', allActiveTrams);
             setAllTramList(allActiveTrams);
 
+            // Bước 3: Lấy các khoảng thời gian đã được thuê cho xe này
+            const { data: bookingsData, error: bookingsError } = await supabase
+                .from('don_thue')
+                .select('bat_dau_luc, ket_thuc_luc')
+                .eq('xe_id', vehicleId)
+                .in('trang_thai', ['PENDING', 'CONFIRMED', 'IN_PROGRESS']);
+
+            if (bookingsError) {
+                console.error('DEBUG: Bookings fetch error:', bookingsError);
+                throw new Error('Lỗi khi tải lịch sử đặt xe: ' + bookingsError.message);
+            }
+
+            const periods = bookingsData.map(b => ({
+                start: new Date(b.bat_dau_luc),
+                end: new Date(b.ket_thuc_luc),
+            }));
+
+            console.log('DEBUG: Booked periods fetched:', periods);
+            setBookedPeriods(periods);
+
         } catch (err) {
             console.error('DEBUG: Full error in fetchInitialData:', err.message, err.stack);
             setError(err.message);
             setVehicle(null);
             setVehicleTramList([]);
             setAllTramList([]);
+            setBookedPeriods([]);
         } finally {
             console.log('DEBUG: fetchInitialData completed, setting loading to false');
             setLoading(false);
@@ -244,11 +267,11 @@ const BookingPage = () => {
   }, []);
 
   useEffect(() => {
-    if (vehicle && pickupDate && returnDate) {
-      const d1 = new Date(pickupDate);
-      const d2 = new Date(returnDate);
-      const days = Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24));
-      if (Number.isFinite(days) && days > 0) {
+    if (vehicle && pickupDate && pickupTime && returnDate && returnTime) {
+      const d1 = getDateFromInputs(pickupDate, pickupTime);
+      const d2 = getDateFromInputs(returnDate, returnTime);
+      if (d1 && d2 && d1 < d2) {
+        const days = Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24));
         const rentalPrice = vehicle.price * days;
         const deliveryFee = 50000;
         const insuranceFee = 100000;
@@ -257,7 +280,7 @@ const BookingPage = () => {
         setTotalAmount(0);
       }
     }
-  }, [vehicle, pickupDate, returnDate]);
+  }, [vehicle, pickupDate, pickupTime, returnDate, returnTime]);
 
   useEffect(() => {
     const status = searchParams.get('status');
@@ -338,6 +361,36 @@ const BookingPage = () => {
     return diffInHours >= 2;
   };
 
+  const hasOverlap = (selectedStart, selectedEnd) => {
+    return bookedPeriods.some(period => 
+      selectedStart < period.end && selectedEnd > period.start
+    );
+  };
+
+  useEffect(() => {
+    if (pickupDate && pickupTime && returnDate && returnTime) {
+      const pickupDateTime = getDateFromInputs(pickupDate, pickupTime);
+      const returnDateTime = getDateFromInputs(returnDate, returnTime);
+      if (pickupDateTime && returnDateTime) {
+        setIsOverlap(hasOverlap(pickupDateTime, returnDateTime));
+      }
+    } else {
+      setIsOverlap(false);
+    }
+  }, [pickupDate, pickupTime, returnDate, returnTime, bookedPeriods]);
+
+  useEffect(() => {
+    if (currentStep === 1) {
+      if (isOverlap) {
+        setError('Thời gian này xe đã được thuê. Vui lòng chọn thời gian khác.');
+      } else if (pickupDate && pickupTime && returnDate && returnTime && !isValidDuration()) {
+        setError('Thời gian thuê phải ít nhất 2 giờ.');
+      } else {
+        setError('');
+      }
+    }
+  }, [isOverlap, pickupDate, pickupTime, returnDate, returnTime, currentStep]);
+
   useEffect(() => {
     if (sameLocation) {
       setReturnTramId(pickupTramId);
@@ -356,6 +409,10 @@ const BookingPage = () => {
     if (currentStep === 1) {
       if (!isValidDuration()) {
         setError('Thời gian thuê phải ít nhất 2 giờ.');
+        return;
+      }
+      if (isOverlap) {
+        setError('Thời gian này xe đã được thuê. Vui lòng chọn thời gian khác.');
         return;
       }
       setError('');
@@ -694,6 +751,7 @@ const BookingPage = () => {
             returnTime={returnTime}
             setReturnTime={setReturnTime}
             isValidDuration={isValidDuration()}
+            bookedPeriods={bookedPeriods}
           />
         );
       case 2:
@@ -783,9 +841,9 @@ const BookingPage = () => {
             <button
               className={`px-8 py-3 text-white rounded-xl font-medium transition-colors ${
                 currentStep === totalSteps ? 'bg-green-600 hover:bg-green-700' : 'bg-primary hover:bg-primary-hover'
-              } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              } ${loading || !!error ? 'opacity-50 cursor-not-allowed' : ''}`}
               onClick={currentStep === totalSteps ? () => router.push('/') : nextStep}
-              disabled={loading}
+              disabled={loading || !!error}
             >
               {loading ? 'Đang xử lý...' : (currentStep === totalSteps ? 'Về trang chủ' : 'Tiếp tục')}
             </button>
