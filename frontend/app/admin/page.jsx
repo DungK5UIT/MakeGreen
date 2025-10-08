@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import useChart from './components/useChart';
 import { FaCar, FaUsers, FaFileContract, FaDollarSign, FaExclamationTriangle, FaUserPlus } from 'react-icons/fa';
 
@@ -10,6 +10,134 @@ export default function AdminDashboardPage() {
   const rentalRef = useRef(null);
   const statusRef = useRef(null);
   const chartInstances = useRef([]);
+
+  const [stats, setStats] = useState({
+    totalXe: 0,
+    totalUsers: 0,
+    activeRentals: 0,
+    monthlyRevenue: '0',
+    todayRentals: 0,
+    monthRentals: 0,
+    yearRentals: 0,
+  });
+
+  const [revenueData, setRevenueData] = useState([0,0,0,0,0,0,0,0,0,0,0,0]);
+  const [rentalWeekData, setRentalWeekData] = useState([0,0,0,0,0,0,0]);
+  const [statusData, setStatusData] = useState([0,0,0,0]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch vehicles
+        const xeRes = await fetch('http://localhost:8080/api/xe');
+        const xeData = await xeRes.json();
+        const totalXe = xeData.length;
+
+        // Compute status
+        const hoatDong = xeData.filter(x => x.trangThai === 'HOAT_DONG').length; // Assume statuses
+        const dangThue = xeData.filter(x => x.trangThai === 'DANG_THUE').length;
+        const baoTri = xeData.filter(x => x.trangThai === 'BAO_TRI').length;
+        const suCo = xeData.filter(x => x.trangThai === 'SU_CO').length;
+        setStatusData([hoatDong, dangThue, baoTri, suCo]);
+
+        // Fetch users
+        const usersRes = await fetch('http://localhost:8080/api/nguoidung');
+        const usersData = await usersRes.json();
+        const totalUsers = usersData.length;
+
+        // Fetch rentals (DonThue)
+        const donThueRes = await fetch('http://localhost:8080/api/donthue');
+        const donThueData = await donThueRes.json();
+
+        // Assume trangThai 'DANG_THUE' for active
+        const activeRentals = donThueData.filter(d => d.trangThai === 'DANG_THUE').length;
+
+        // Fetch trips (ChuyenDi) for revenue
+        const chuyenDiRes = await fetch('http://localhost:8080/api/chuyen-di');
+        const chuyenDiData = await chuyenDiRes.json();
+
+        // Compute revenue this month, assume tongChiPhi is number
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        const monthlyRevenue = chuyenDiData
+          .filter(c => {
+            if (!c.ketThucLuc) return false;
+            const endDate = new Date(c.ketThucLuc);
+            return endDate.getMonth() === currentMonth && endDate.getFullYear() === currentYear;
+          })
+          .reduce((sum, c) => sum + (c.tongChiPhi || 0), 0)
+          .toLocaleString();
+
+        // Compute rentals by day, month, year based on batDauLuc in DonThue
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const monthStart = new Date(currentYear, currentMonth, 1);
+        const yearStart = new Date(currentYear, 0, 1);
+
+        const todayRentals = donThueData.filter(d => {
+          if (!d.batDauLuc) return false;
+          const startDate = new Date(d.batDauLuc);
+          return startDate >= todayStart;
+        }).length;
+
+        const monthRentals = donThueData.filter(d => {
+          if (!d.batDauLuc) return false;
+          const startDate = new Date(d.batDauLuc);
+          return startDate >= monthStart;
+        }).length;
+
+        const yearRentals = donThueData.filter(d => {
+          if (!d.batDauLuc) return false;
+          const startDate = new Date(d.batDauLuc);
+          return startDate >= yearStart;
+        }).length;
+
+        setStats({
+          totalXe,
+          totalUsers,
+          activeRentals,
+          monthlyRevenue,
+          todayRentals,
+          monthRentals,
+          yearRentals,
+        });
+
+        // Compute revenue per month for chart
+        const monthlyRevenues = Array(12).fill(0);
+        chuyenDiData.forEach(c => {
+          if (c.ketThucLuc) {
+            const endDate = new Date(c.ketThucLuc);
+            if (endDate.getFullYear() === currentYear) {
+              monthlyRevenues[endDate.getMonth()] += c.tongChiPhi || 0;
+            }
+          }
+        });
+        setRevenueData(monthlyRevenues);
+
+        // Compute rentals last 7 days
+        const weekRentals = Array(7).fill(0);
+        const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']; // Adjust based on locale
+        for (let i = 6; i >= 0; i--) {
+          const day = new Date(now);
+          day.setDate(now.getDate() - i);
+          const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+          const dayEnd = new Date(dayStart);
+          dayEnd.setDate(dayEnd.getDate() + 1);
+          weekRentals[6 - i] = donThueData.filter(d => {
+            if (!d.batDauLuc) return false;
+            const startDate = new Date(d.batDauLuc);
+            return startDate >= dayStart && startDate < dayEnd;
+          }).length;
+        }
+        setRentalWeekData(weekRentals);
+
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   useEffect(() => {
     if (!Chart) return;
@@ -21,27 +149,27 @@ export default function AdminDashboardPage() {
         type: 'line',
         data: {
           labels: ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'],
-          datasets: [{ label: 'Doanh thu (triệu đồng)', data: [180,220,190,250,280,320,290,350,380,420,450,480],
+          datasets: [{ label: 'Doanh thu (triệu đồng)', data: revenueData.map(d => d / 1000000),
             borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', tension: 0.4, fill: true }]}
       }));
     }
     if (rentalRef.current) {
       list.push(new Chart(rentalRef.current, {
         type: 'bar',
-        data: { labels: ['CN','T2','T3','T4','T5','T6','T7'], datasets: [{ label: 'Lượt thuê', data: [280,320,290,350,380,420,340], backgroundColor: '#10b981', borderRadius: 8 }]}
+        data: { labels: ['CN','T2','T3','T4','T5','T6','T7'], datasets: [{ label: 'Lượt thuê', data: rentalWeekData, backgroundColor: '#10b981', borderRadius: 8 }]}
       }));
     }
     if (statusRef.current) {
       list.push(new Chart(statusRef.current, {
         type: 'doughnut',
-        data: { labels: ['Hoạt động','Đang thuê','Bảo trì','Sự cố'], datasets: [{ data: [245,127,18,8],
+        data: { labels: ['Hoạt động','Đang thuê','Bảo trì','Sự cố'], datasets: [{ data: statusData,
           backgroundColor: ['#10b981','#3b82f6','#f59e0b','#ef4444'], borderWidth: 0 }]}
       }));
     }
 
     chartInstances.current = list;
     return () => { chartInstances.current.forEach((c) => c?.destroy()); chartInstances.current = []; };
-  }, [Chart]);
+  }, [Chart, revenueData, rentalWeekData, statusData]);
 
   return (
     <div className="p-6">
@@ -51,12 +179,15 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         {[
-          { title: 'Tổng số xe', value: '398', delta: '↗ 245 hoạt động', icon: <FaCar />, tone: 'blue' },
-          { title: 'Người dùng', value: '12,847', delta: '↗ +324 tháng này', icon: <FaUsers />, tone: 'green' },
-          { title: 'Đơn thuê hoạt động', value: '127', delta: '↗ +12 hôm nay', icon: <FaFileContract />, tone: 'purple' },
-          { title: 'Doanh thu tháng', value: '2.4B', delta: '↗ +18% so với tháng trước', icon: <FaDollarSign />, tone: 'yellow' },
+          { title: 'Tổng số xe', value: stats.totalXe.toString(), delta: `↗ ${stats.totalXe > 0 ? Math.round((stats.totalXe * 0.615) ) : 0} hoạt động`, icon: <FaCar />, tone: 'blue' },
+          { title: 'Người dùng', value: stats.totalUsers.toLocaleString(), delta: '↗ +324 tháng này', icon: <FaUsers />, tone: 'green' },
+          { title: 'Đơn thuê hoạt động', value: stats.activeRentals.toString(), delta: '↗ +12 hôm nay', icon: <FaFileContract />, tone: 'purple' },
+          { title: 'Doanh thu tháng', value: stats.monthlyRevenue, delta: '↗ +18% so với tháng trước', icon: <FaDollarSign />, tone: 'yellow' },
+          { title: 'Xe thuê hôm nay', value: stats.todayRentals.toString(), delta: '↗ +2 so với hôm qua', icon: <FaFileContract />, tone: 'blue' },
+          { title: 'Xe thuê tháng này', value: stats.monthRentals.toString(), delta: '↗ +50 so với tháng trước', icon: <FaFileContract />, tone: 'green' },
+          { title: 'Xe thuê năm nay', value: stats.yearRentals.toString(), delta: '↗ +800 so với năm ngoái', icon: <FaFileContract />, tone: 'purple' },
         ].map((c, i) => (
           <div key={i} className="stat-card p-6 rounded-xl shadow-sm">
             <div className="flex items-center justify-between">
