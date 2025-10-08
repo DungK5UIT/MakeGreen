@@ -168,13 +168,16 @@ const BookingPage = () => {
                 throw new Error('Lỗi khi tải lịch sử đặt xe: ' + bookingsError.message);
             }
 
+            const now = new Date();
             const periods = bookingsData.map(b => ({
                 start: new Date(b.bat_dau_luc),
                 end: new Date(b.ket_thuc_luc),
             }));
+            // Lọc để chỉ giữ các khoảng thời gian chưa kết thúc (end > now)
+            const filteredPeriods = periods.filter(period => period.end > now);
 
-            console.log('DEBUG: Booked periods fetched:', periods);
-            setBookedPeriods(periods);
+            console.log('DEBUG: Filtered booked periods:', filteredPeriods);
+            setBookedPeriods(filteredPeriods);
 
         } catch (err) {
             console.error('DEBUG: Full error in fetchInitialData:', err.message, err.stack);

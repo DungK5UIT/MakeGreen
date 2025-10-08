@@ -1,6 +1,8 @@
 import React from 'react';
 
 const Step1Time = ({ pickupDate, setPickupDate, pickupTime, setPickupTime, returnDate, setReturnDate, returnTime, setReturnTime, isValidDuration, bookedPeriods }) => {
+  const today = new Date().toISOString().split('T')[0]; // Định dạng YYYY-MM-DD cho ngày hiện tại
+
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Chọn thời gian thuê xe</h2>
@@ -11,6 +13,7 @@ const Step1Time = ({ pickupDate, setPickupDate, pickupTime, setPickupTime, retur
             type="date"
             value={pickupDate}
             onChange={(e) => setPickupDate(e.target.value)}
+            min={today} // Không cho chọn ngày trước hiện tại
             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
           />
         </div>
@@ -34,6 +37,7 @@ const Step1Time = ({ pickupDate, setPickupDate, pickupTime, setPickupTime, retur
             type="date"
             value={returnDate}
             onChange={(e) => setReturnDate(e.target.value)}
+            min={pickupDate || today} // Không cho chọn ngày trước ngày nhận xe hoặc hiện tại
             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
           />
         </div>
