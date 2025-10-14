@@ -172,7 +172,7 @@ public class ChuyenDiService {
             // Logic đúng: Xóa liên kết cũ, flush, sau đó tạo liên kết mới.
 
             // 5.1. Xóa liên kết trạm cũ của xe và FLUSH NGAY LẬP TỨC
-            tramXeRepository.findByXe(xe).ifPresent(existingTramXe -> {
+            tramXeRepository.findByXeId(xe.getId()).ifPresent(existingTramXe -> {
                 tramXeRepository.delete(existingTramXe);
                 tramXeRepository.flush(); // <-- THÊM DÒNG NÀY ĐỂ THỰC THI LỆNH DELETE NGAY
                 logger.info("Deleted old station link for vehicle {}.", xe.getId());

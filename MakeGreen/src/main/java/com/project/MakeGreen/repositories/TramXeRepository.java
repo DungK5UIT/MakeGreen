@@ -8,11 +8,12 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 // import java.util.UUID; // Dòng này không cần thiết nữa
+import java.util.UUID;
 
 @Repository
 // Thay đổi ở đây: từ UUID -> TramXeId
 public interface TramXeRepository extends JpaRepository<TramXe, TramXeId> {
     
     // Phương thức để tìm liên kết Tram-Xe dựa trên đối tượng Xe
-    Optional<TramXe> findByXe(Xe xe);
+	Optional<TramXe> findByXeId(UUID xeId);
 }

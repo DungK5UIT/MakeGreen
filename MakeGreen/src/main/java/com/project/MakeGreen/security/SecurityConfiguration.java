@@ -33,6 +33,7 @@ public class SecurityConfiguration {
                 .requestMatchers("/api/su-co/**").permitAll() 
                 .requestMatchers("/api/nguoidung/**").permitAll() 
                 .requestMatchers("/api/donthue/**").permitAll() 
+                .requestMatchers("/api/tram/**").permitAll() 
                 .requestMatchers("/api/bao-tri/**").permitAll() 
                 .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
                 .requestMatchers("/api/user/**").hasAnyAuthority("USER", "ADMIN")

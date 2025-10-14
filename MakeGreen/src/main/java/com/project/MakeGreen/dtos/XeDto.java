@@ -29,7 +29,7 @@ public class XeDto {
     private Integer dungLuongPinWh;
     private Double pinTieuThuPerKm;
     private String tinhTrang;
-
+    private UUID tramId;
     // Thêm danh sách bảo trì DTO nếu cần
     private List<BaoTriDto> baoTris;
 

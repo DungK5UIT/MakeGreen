@@ -28,7 +28,7 @@ public class XeController {
     public ResponseEntity<?> taoXe(@RequestBody XeDto xeDto) {
         try {
             log.info("Tao xe voi bienSo: {}", xeDto.getBienSo());
-            Xe xe = xeService.taoXe(xeDto.getBienSo(), xeDto.getTrangThai(), xeDto.getPinPhanTram(), xeDto.getSoKm(), xeDto.getName(), xeDto.getBrand(), xeDto.getModel(), xeDto.getRangeKm(), xeDto.getTopSpeedKmh(), xeDto.getBattery(), xeDto.getPrice(), xeDto.getDeposit(), xeDto.getRating(), xeDto.getChargeTime(), xeDto.getWeightKg(), xeDto.getDungLuongPinWh(), xeDto.getPinTieuThuPerKm(), xeDto.getTinhTrang());
+            Xe xe = xeService.taoXe(xeDto.getBienSo(), xeDto.getTrangThai(), xeDto.getPinPhanTram(), xeDto.getSoKm(), xeDto.getName(), xeDto.getBrand(), xeDto.getModel(), xeDto.getRangeKm(), xeDto.getTopSpeedKmh(), xeDto.getBattery(), xeDto.getPrice(), xeDto.getDeposit(), xeDto.getRating(), xeDto.getChargeTime(), xeDto.getWeightKg(), xeDto.getDungLuongPinWh(), xeDto.getPinTieuThuPerKm(), xeDto.getTinhTrang(), xeDto.getTramId());
             log.info("Successfully tao xe: {}", xe.getId());
             return ResponseEntity.ok(XeDto.from(xe));
         } catch (RuntimeException e) {
@@ -64,7 +64,7 @@ public class XeController {
     public ResponseEntity<?> capNhatXe(@PathVariable UUID id, @RequestBody XeDto xeDto) {
         try {
             log.info("Cap nhat xe id: {}", id);
-            Xe updatedXe = xeService.capNhatXe(id, xeDto.getBienSo(), xeDto.getTrangThai(), xeDto.getPinPhanTram(), xeDto.getSoKm(), xeDto.getName(), xeDto.getBrand(), xeDto.getModel(), xeDto.getRangeKm(), xeDto.getTopSpeedKmh(), xeDto.getBattery(), xeDto.getPrice(), xeDto.getDeposit(), xeDto.getRating(), xeDto.getChargeTime(), xeDto.getWeightKg(), xeDto.getDungLuongPinWh(), xeDto.getPinTieuThuPerKm(), xeDto.getTinhTrang());
+            Xe updatedXe = xeService.capNhatXe(id, xeDto.getBienSo(), xeDto.getTrangThai(), xeDto.getPinPhanTram(), xeDto.getSoKm(), xeDto.getName(), xeDto.getBrand(), xeDto.getModel(), xeDto.getRangeKm(), xeDto.getTopSpeedKmh(), xeDto.getBattery(), xeDto.getPrice(), xeDto.getDeposit(), xeDto.getRating(), xeDto.getChargeTime(), xeDto.getWeightKg(), xeDto.getDungLuongPinWh(), xeDto.getPinTieuThuPerKm(), xeDto.getTinhTrang(), xeDto.getTramId());
             log.info("Successfully cap nhat xe: {}", updatedXe.getId());
             return ResponseEntity.ok(XeDto.from(updatedXe));
         } catch (RuntimeException e) {

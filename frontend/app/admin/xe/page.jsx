@@ -162,7 +162,7 @@ function VehicleTable({ onOpenModal, refreshKey, searchQuery, statusFilter, bran
         <table className="w-full">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
-              {['Xe', 'Pin', 'Số km đã đi', 'Trạng thái', 'Tình trạng', 'Giá thuê', 'Đánh giá', 'Thao tác'].map((h) => ( // Thêm cột Tình trạng
+              {['Xe', 'Pin', 'Số km đã đi', 'Trạng thái', 'Tình trạng', 'Giá thuê', 'Đánh giá', 'Thao tác'].map((h) => (
                 <th key={h} className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {h}
                 </th>
@@ -262,7 +262,31 @@ function VehicleModal({ open, onClose, isCreating, isViewOnly, selectedXe }) {
     dungLuongPinWh: null,
     pinTieuThuPerKm: null,
     tinhTrang: '', // Thêm trường tình trạng mới
+    tramId: null, // Thêm trường tramId
   });
+
+  const [trams, setTrams] = useState([]);
+  const [loadingTrams, setLoadingTrams] = useState(true);
+
+  useEffect(() => {
+    if (open) {
+      fetchTrams();
+    }
+  }, [open]);
+
+  const fetchTrams = async () => {
+    setLoadingTrams(true);
+    try {
+      const response = await fetch('http://localhost:8080/api/tram');
+      if (!response.ok) throw new Error('Failed to fetch trams');
+      const data = await response.json();
+      setTrams(data);
+    } catch (error) {
+      console.error('Error fetching trams:', error);
+    } finally {
+      setLoadingTrams(false);
+    }
+  };
 
   useEffect(() => {
     if (!isCreating && selectedXe) {
@@ -285,6 +309,7 @@ function VehicleModal({ open, onClose, isCreating, isViewOnly, selectedXe }) {
         dungLuongPinWh: selectedXe.dungLuongPinWh || null,
         pinTieuThuPerKm: selectedXe.pinTieuThuPerKm || null,
         tinhTrang: selectedXe.tinhTrang || '', // Thêm trường tình trạng mới
+        tramId: selectedXe.tramId || null, // Thêm tramId
       });
     } else {
       setFormData({
@@ -306,6 +331,7 @@ function VehicleModal({ open, onClose, isCreating, isViewOnly, selectedXe }) {
         dungLuongPinWh: null,
         pinTieuThuPerKm: null,
         tinhTrang: '', // Thêm trường tình trạng mới
+        tramId: null, // Thêm tramId
       });
     }
   }, [isCreating, selectedXe, open]);
@@ -316,6 +342,8 @@ function VehicleModal({ open, onClose, isCreating, isViewOnly, selectedXe }) {
       ...prev,
       [name]: ['pinPhanTram', 'soKm', 'rangeKm', 'topSpeedKmh', 'price', 'deposit', 'rating', 'weightKg', 'dungLuongPinWh', 'pinTieuThuPerKm'].includes(name)
         ? (value === '' ? null : parseFloat(value))
+        : name === 'tramId'
+        ? (value === '' ? null : value)
         : value,
     }));
   };
@@ -452,6 +480,27 @@ function VehicleModal({ open, onClose, isCreating, isViewOnly, selectedXe }) {
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tình trạng</label> {/* Thêm input cho tình trạng */}
               <input name="tinhTrang" value={formData.tinhTrang} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white" disabled={isViewOnly} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Trạm xe</label>
+              {loadingTrams ? (
+                <p>Đang tải danh sách trạm...</p>
+              ) : (
+                <select
+                  name="tramId"
+                  value={formData.tramId || ''}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  disabled={isViewOnly}
+                >
+                  <option value="">Không liên kết trạm</option>
+                  {trams.map((tram) => (
+                    <option key={tram.id} value={tram.id}>
+                      {tram.ten} ({tram.diaChi})
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
           <div className="mt-6 flex justify-end gap-3">
