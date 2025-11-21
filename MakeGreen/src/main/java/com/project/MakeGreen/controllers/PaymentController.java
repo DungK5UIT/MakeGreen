@@ -1,4 +1,3 @@
-// Backend: PaymentController.java (full code with added log in handleVNPayCallback)
 package com.project.MakeGreen.controllers;
 
 import com.project.MakeGreen.dtos.responses.ErrorResponse;
@@ -10,6 +9,7 @@ import com.project.MakeGreen.repositories.DonThueRepository;
 import com.project.MakeGreen.repositories.XeRepository;
 import com.project.MakeGreen.repositories.DongXeRepository;
 import com.project.MakeGreen.services.VNPayService;
+import com.project.MakeGreen.services.EmailService; // 👇 1. THÊM IMPORT
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.NonUniqueResultException;
@@ -50,6 +50,10 @@ public class PaymentController {
 
     @Autowired
     private DongXeRepository dongXeRepository;
+    
+    // 👇 2. THÊM: Inject EmailService
+    @Autowired
+    private EmailService emailService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -126,10 +130,38 @@ public class PaymentController {
             logger.info("Processed callback with response code: {} for don_thue: {}", responseCode, donThueId);
 
             // Map response code to status
-            status = "00".equals(responseCode) ? "SUCCESS" :
-                    responseCode.equals("07") ? "INVALID_FORMAT" :
-                    responseCode.equals("11") ? "TIMEOUT" :
-                    responseCode.equals("24") ? "CANCELED" : "FAILED";
+            if ("00".equals(responseCode)) {
+                status = "SUCCESS";
+
+                // 👇 3. THÊM: Gửi email khi thanh toán VNPay THÀNH CÔNG
+                try {
+                    logger.info("Thanh toan VNPay thanh cong -> Gui email xac nhan...");
+                    UUID uuid = UUID.fromString(donThueId);
+                    DonThue donThue = donThueRepository.findById(uuid).orElse(null);
+                    
+                    if (donThue != null) {
+                        // Nếu cần đảm bảo trạng thái đã cập nhật
+                        // donThue.setTrangThai("DEPOSIT_PAID");
+                        // donThueRepository.save(donThue);
+                        
+                        emailService.sendOrderCreationEmail(donThue);
+                        logger.info("Gui email thanh cong cho don thue VNPay: {}", donThueId);
+                    }
+                } catch (Exception e) {
+                    logger.error("Loi gui email sau khi thanh toan VNPay: {}", e.getMessage());
+                }
+                // ☝️ KẾT THÚC PHẦN THÊM
+                
+            } else if (responseCode.equals("07")) {
+                status = "INVALID_FORMAT";
+            } else if (responseCode.equals("11")) {
+                status = "TIMEOUT";
+            } else if (responseCode.equals("24")) {
+                status = "CANCELED";
+            } else {
+                status = "FAILED";
+            }
+            
             message = getVNPayErrorMessage(responseCode);
 
             return buildRedirectResponse(donThueId, status, message);
@@ -141,6 +173,7 @@ public class PaymentController {
             return buildRedirectResponse(donThueId, "FAILED", message);
         }
     }
+    
     private ResponseEntity<?> buildRedirectResponse(String donThueId, String status, String message) {
         try {
             // Lấy vehicleId từ don_thue

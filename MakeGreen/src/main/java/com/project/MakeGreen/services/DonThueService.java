@@ -7,6 +7,8 @@ import com.project.MakeGreen.models.Xe;
 import com.project.MakeGreen.repositories.DonThueRepository;
 import com.project.MakeGreen.repositories.TramRepository;
 import com.project.MakeGreen.repositories.XeRepository;
+import com.project.MakeGreen.services.EmailService; // Import EmailService
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +35,9 @@ public class DonThueService {
 
     @Autowired
     private TramRepository tramRepository;
+    
+    @Autowired
+    private EmailService emailService; // Inject EmailService
 
     @Transactional
     public DonThue taoDonThue(UUID nguoiDungId, UUID xeId, OffsetDateTime batDauLuc, OffsetDateTime ketThucLuc, String trangThai, BigDecimal soTienCoc, BigDecimal chiPhiUocTinh, UUID tramThueId, UUID tramTraId) {
@@ -57,6 +62,16 @@ public class DonThueService {
 
         DonThue savedDonThue = donThueRepository.save(donThue);
         logger.info("Tao don thue thanh cong voi id: {}", savedDonThue.getId());
+
+        // --- GỬI EMAIL XÁC NHẬN TẠO ĐƠN ---
+        try {
+            emailService.sendOrderCreationEmail(savedDonThue);
+        } catch (Exception e) {
+            logger.error("Khong the gui email xac nhan don thue: {}", e.getMessage());
+            // Không throw exception để tránh rollback transaction nếu chỉ lỗi gửi mail
+        }
+        // -----------------------------------
+
         return savedDonThue;
     }
 
