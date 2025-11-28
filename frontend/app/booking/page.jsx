@@ -482,19 +482,13 @@ const BookingPage = () => {
     setLoading(true);
     setError('');
     console.log('submitBooking - Input:', {
-      isLoggedIn,
-      isVerified,
-      pickupTramId,
-      returnTramId,
-      pickupDate,
-      pickupTime,
-      returnDate,
-      returnTime,
-      vehicleId,
-      selectedPayment,
+      isLoggedIn, isVerified, pickupTramId, returnTramId,
+      pickupDate, pickupTime, returnDate, returnTime,
+      vehicleId, selectedPayment,
     });
 
     try {
+      // 1. Validate dữ liệu đầu vào (GIỮ NGUYÊN)
       if (!pickupDate || !returnDate || !pickupTime || !returnTime) {
         throw new Error('Thiếu thời gian nhận/trả xe.');
       }
@@ -502,8 +496,9 @@ const BookingPage = () => {
         throw new Error('Thiếu trạm nhận/trả xe.');
       }
 
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
+      // 2. Xử lý User / Anonymous (GIỮ NGUYÊN LOGIC CŨ CỦA BẠN)
+      // Phần này quan trọng để lấy nguoi_dung_id chính xác từ Supabase
+      const { data: { session } } = await supabase.auth.getSession();
       let nguoi_dung_id = session?.user?.id;
 
       if (!session?.user) {
@@ -513,39 +508,24 @@ const BookingPage = () => {
         nguoi_dung_id = authData.user.id;
 
         const { data: existingUser, error: existingUserError } = await supabase
-          .from('nguoi_dung')
-          .select('id, sdt, trang_thai')
-          .eq('id', nguoi_dung_id)
-          .single();
-        if (existingUserError && existingUserError.code !== 'PGRST116') {
-          throw existingUserError;
-        }
+          .from('nguoi_dung').select('id, sdt, trang_thai').eq('id', nguoi_dung_id).single();
+        
+        if (existingUserError && existingUserError.code !== 'PGRST116') throw existingUserError;
 
         if (!existingUser) {
           const { data: phoneCheck } = await supabase
-            .from('nguoi_dung')
-            .select('id')
-            .eq('sdt', customerInfo.phone)
-            .single();
-          if (phoneCheck) {
-            throw new Error('Số điện thoại đã tồn tại. Vui lòng đăng nhập để tiếp tục.');
-          }
+            .from('nguoi_dung').select('id').eq('sdt', customerInfo.phone).single();
+          if (phoneCheck) throw new Error('Số điện thoại đã tồn tại. Vui lòng đăng nhập để tiếp tục.');
 
-          const { error: userError } = await supabase
-            .from('nguoi_dung')
-            .insert({
-              id: nguoi_dung_id,
-              sdt: customerInfo.phone,
-              ho_ten: customerInfo.fullName,
-              email: customerInfo.email,
-              trang_thai: 'ANONYMOUS',
-              ngay_tao: new Date(),
-            })
-            .select('id')
-            .single();
-          if (userError) {
-            throw new Error('Lỗi tạo hồ sơ người dùng: ' + userError.message);
-          }
+          const { error: userError } = await supabase.from('nguoi_dung').insert({
+            id: nguoi_dung_id,
+            sdt: customerInfo.phone,
+            ho_ten: customerInfo.fullName,
+            email: customerInfo.email,
+            trang_thai: 'ANONYMOUS',
+            ngay_tao: new Date(),
+          }).select('id').single();
+          if (userError) throw new Error('Lỗi tạo hồ sơ người dùng: ' + userError.message);
         }
       } else {
         console.log('Tìm thấy người dùng, ID:', session.user.id);
@@ -555,25 +535,19 @@ const BookingPage = () => {
           email: customerInfo.email || undefined,
         };
         const { error: updateError } = await supabase
-          .from('nguoi_dung')
-          .update(updateFields)
-          .eq('id', nguoi_dung_id);
-        if (updateError) {
-          throw new Error('Lỗi cập nhật hồ sơ: ' + updateError.message);
-        }
+          .from('nguoi_dung').update(updateFields).eq('id', nguoi_dung_id);
+        if (updateError) throw new Error('Lỗi cập nhật hồ sơ: ' + updateError.message);
       }
 
-      console.log('Sử dụng nguoi_dung_id:', nguoi_dung_id);
-
+      // Cập nhật KYC nếu cần (GIỮ NGUYÊN)
       if (!isVerified && uploads.frontID && uploads.backID && uploads.gplx) {
         const { error: verifyError } = await supabase
-          .from('nguoi_dung')
-          .update({ trang_thai: 'ACTIVE' })
-          .eq('id', nguoi_dung_id);
+          .from('nguoi_dung').update({ trang_thai: 'ACTIVE' }).eq('id', nguoi_dung_id);
         if (verifyError) throw new Error('Lỗi cập nhật trạng thái verified: ' + verifyError.message);
         setIsVerified(true);
       }
 
+      // 3. Tính toán thời gian & Kiểm tra trùng lặp (GIỮ NGUYÊN để check nhanh ở FE)
       const batDauLuc = new Date(`${pickupDate}T${pickupTime}:00Z`);
       const ketThucLuc = new Date(`${returnDate}T${returnTime}:00Z`);
 
@@ -584,143 +558,151 @@ const BookingPage = () => {
         .lt('bat_dau_luc', ketThucLuc.toISOString())
         .gt('ket_thuc_luc', batDauLuc.toISOString());
 
-      if (busyXeError) {
-        console.error('Lỗi lấy danh sách xe bận:', busyXeError);
-        throw new Error('Lỗi kiểm tra xe khả dụng');
-      }
-
+      if (busyXeError) throw new Error('Lỗi kiểm tra xe khả dụng');
       const busyXeIds = busyXeData.map(row => row.xe_id);
-
-      let query = supabase
-        .from('xe')
-        .select('id')
-        .eq('trang_thai', 'AVAILABLE')
-        .eq('id', vehicleId);
-
-      if (busyXeIds.length > 0) {
-        query = query.not('id', 'in', `(${busyXeIds.join(',')})`);
+      
+      // Đảm bảo xe hiện tại không nằm trong danh sách bận
+      if (busyXeIds.includes(vehicleId)) {
+         throw new Error('Xe không còn khả dụng tại thời gian này. Vui lòng chọn xe khác.');
       }
 
-      const { data: availableXe, error: xeError } = await query
-        .limit(1)
-        .single();
-
-      if (xeError || !availableXe) {
-        console.error('Lỗi tìm xe khả dụng:', xeError?.message || 'Xe không còn khả dụng');
-        throw new Error('Xe không còn khả dụng tại thời gian này. Vui lòng chọn xe khác.');
-      }
-
+      // Tính tiền
       const days = Math.ceil((ketThucLuc - batDauLuc) / (1000 * 60 * 60 * 24));
       const deliveryFee = 50000;
       const insuranceFee = 100000;
       const rentalPrice = vehicle?.price && days > 0 ? vehicle.price * days : 0;
       const total = rentalPrice + deliveryFee + insuranceFee;
-      setTotalAmount(total);
-
-      const { data: booking, error: bookingError } = await supabase
-        .from('don_thue')
-        .insert({
-          nguoi_dung_id,
-          xe_id: availableXe.id,
-          bat_dau_luc: batDauLuc.toISOString(),
-          ket_thuc_luc: ketThucLuc.toISOString(),
-          trang_thai: 'PENDING',
-          so_tien_coc: total * 0.5,
-          chi_phi_uoc_tinh: total,
-          tram_thue_id: pickupTramId,
-          tram_tra_id: returnTramId,
-        })
-        .select('id')
-        .single();
-      if (bookingError) {
-        console.error('Lỗi tạo đơn thuê:', bookingError);
-        throw new Error('Lỗi tạo đơn thuê: ' + bookingError.message);
-      }
-
       const depositAmount = total * 0.5;
-      const { error: paymentError } = await supabase
-        .from('thanh_toan')
-        .insert({
-          nguoi_dung_id,
-          don_thue_id: booking.id,
-          loai: 'deposit',
-          phuong_thuc: selectedPayment,
-          so_tien: depositAmount,
-          trang_thai: 'PENDING',
-          thanh_toan_luc: new Date().toISOString(),
-        });
-      if (paymentError) {
-        console.error('Lỗi tạo thanh toán:', paymentError);
-        throw new Error('Lỗi tạo thanh toán: ' + paymentError.message);
+
+      // ==================================================================
+      // BƯỚC QUAN TRỌNG NHẤT: GỌI API BACKEND (Thay vì insert Supabase)
+      // ==================================================================
+      console.log('Đang gọi API Backend để tạo đơn và gửi mail...');
+
+      const params = new URLSearchParams();
+      params.append('nguoiDungId', nguoi_dung_id);
+      params.append('xeId', vehicleId);
+      params.append('batDauLuc', batDauLuc.toISOString());
+      params.append('ketThucLuc', ketThucLuc.toISOString());
+      params.append('trangThai', 'PENDING'); // Luôn tạo Pending trước
+      params.append('soTienCoc', depositAmount.toString());
+      params.append('chiPhiUocTinh', total.toString());
+      params.append('tramThueId', pickupTramId);
+      params.append('tramTraId', returnTramId);
+
+      // Gọi vào Spring Boot: Lưu DB -> Gửi Mail -> Trả về Booking
+      const response = await fetch(`http://localhost:8080/api/donthue?${params.toString()}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMsg = errorText;
+        try {
+            const errJson = JSON.parse(errorText);
+            errorMsg = errJson.message || errorText;
+        } catch(e) {}
+        throw new Error('Lỗi Server: ' + errorMsg);
       }
+
+      // Lấy thông tin đơn hàng từ Backend trả về
+      const booking = await response.json();
+      console.log('Tạo đơn thành công via Backend, ID:', booking.id);
+
+      // ==================================================================
+      // XỬ LÝ THANH TOÁN & HOÀN TẤT
+      // ==================================================================
 
       if (selectedPayment === 'vnpay') {
-        const headers = {
-          'Content-Type': 'application/json',
-        };
-
+        // --- CASE VNPay ---
+        const headers = { 'Content-Type': 'application/json' };
         console.log('Khởi tạo thanh toán VNPay cho donThueId:', booking.id);
 
-        const response = await fetch(
+        const vnpayRes = await fetch(
           `http://localhost:8080/api/pay/vnpay/initiate?donThueId=${booking.id}&test=true`,
           { method: 'POST', headers }
         );
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          let errorData;
-          try {
-            errorData = JSON.parse(errorText);
-          } catch (e) {
-            errorData = { message: errorText };
-          }
-          console.error('Lỗi từ server:', errorData);
-          throw new Error(errorData.message || 'Lỗi khởi tạo thanh toán VNPay');
+        if (!vnpayRes.ok) {
+           const errTxt = await vnpayRes.text();
+           throw new Error('Lỗi khởi tạo VNPay: ' + errTxt);
         }
 
-        const { paymentUrl } = await response.json();
+        const { paymentUrl } = await vnpayRes.json();
         window.location.href = paymentUrl;
-        return;
+        return; // Dừng hàm để redirect
+
+      } else {
+       // 1. Cập nhật trạng thái đơn thuê -> CONFIRMED
+        const { error: confirmError } = await supabase
+          .from('don_thue')
+          .update({ trang_thai: 'CONFIRMED' })
+          .eq('id', booking.id);
+
+        if (confirmError) {
+          console.error('Lỗi xác nhận đơn:', confirmError);
+          throw new Error('Lỗi xác nhận đơn: ' + confirmError.message);
+        }
+
+        // 2. GỌI API TẠO CHUYẾN ĐI (Bắt buộc để hiển thị Map)
+        try {
+            console.log('🚀 Đang gọi API tạo chuyến đi...');
+            
+            // Sử dụng URLSearchParams để gắn tham số lên URL -> Backend Java chắc chắn nhận được
+            const params = new URLSearchParams({
+                donThueId: booking.id,
+                nguoiDungId: nguoi_dung_id,
+                xeId: availableXe.id,
+                trangThai: 'IN_PROGRESS' // Quan trọng: Set trạng thái để hiện lên Map
+            });
+
+            // Gọi POST: http://localhost:8080/api/chuyen-di?donThueId=...&...
+            const response = await fetch(`http://localhost:8080/api/chuyen-di?${params.toString()}`, {
+                method: 'POST',
+                headers: {
+                    // Thêm header này để tránh một số lỗi preflight check
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                // Nếu lỗi, in ra để biết (nhưng không chặn luồng success của user)
+                const errorText = await response.text();
+                console.error('⚠️ Backend trả về lỗi khi tạo chuyến đi:', errorText);
+            } else {
+                console.log('✅ Đã tạo chuyến đi thành công trên Server!');
+            }
+        } catch (apiErr) {
+            console.error('❌ Lỗi kết nối API Java:', apiErr);
+            // Có thể do server tắt, sai port, hoặc chặn CORS.
+        }
+
+        // 3. Hiển thị thông báo thành công cho người dùng
+        setBookingId(booking.id.slice(-8).toUpperCase());
+        setBookingSuccess(true);
+        setPaymentStatus('SUCCESS');
+        
+        if (selectedPayment === 'cash') {
+          setPaymentMessage('Đặt xe thành công! Email xác nhận đã được gửi. Vui lòng thanh toán khi nhận xe.');
+        } else {
+          setPaymentMessage(`Đã ghi nhận phương thức ${selectedPayment}. Vui lòng kiểm tra email.`);
+        }
+        
+        setCurrentStep(6);
       }
 
-      const { error: confirmError } = await supabase
-        .from('don_thue')
-        .update({ trang_thai: 'CONFIRMED' })
-        .eq('id', booking.id);
-      if (confirmError) {
-        console.error('Lỗi xác nhận đơn:', confirmError);
-        throw new Error('Lỗi xác nhận đơn: ' + confirmError.message);
-      }
-
-      setBookingId(booking.id.slice(-8).toUpperCase());
-      setBookingSuccess(true);
-      setPaymentStatus('SUCCESS');
-      setPaymentMessage('Thanh toán hoàn tất!');
-      setCurrentStep(6);
-      if (status === 'SUCCESS') {
-        const fetchXeStatus = async () => {
-          const { data } = await supabase.from('xe').select('trang_thai').eq('id', vehicleId).single();
-          if (data.trang_thai === 'UNAVAILABLE') {
-            console.log('Xe is now UNAVAILABLE after payment');
-          }
-        };
-        fetchXeStatus();
-      }
     } catch (err) {
-      console.error('🔥 Lỗi đặt xe chi tiết:', {
-        message: err.message,
-        stack: err.stack,
-        code: err.code,
-        originalError: err,
-      });
+      console.error('🔥 Lỗi đặt xe chi tiết:', err);
+      
       if (err.message.includes('Số điện thoại đã tồn tại')) {
-        setError('Số điện thoại đã được sử dụng. Vui lòng <a href="/login" className="underline">đăng nhập</a> hoặc dùng số khác.');
+        setError('Số điện thoại đã được sử dụng. Vui lòng <a href="/login" className="underline">đăng nhập</a>.');
       } else if (err.message.includes('Xe không còn khả dụng')) {
         setError('Xe không còn khả dụng tại thời gian này. Vui lòng chọn xe khác.');
-      } else if (err.message.includes('Lỗi xác thực người dùng')) {
-        setError('Phiên đăng nhập không hợp lệ. Vui lòng <a href="/login" className="underline">đăng nhập lại</a>.');
       } else {
-        setError(err.message || 'Đã có lỗi xảy ra. Vui lòng thử lại hoặc liên hệ hỗ trợ.');
+        setError(err.message || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
       }
     } finally {
       setLoading(false);

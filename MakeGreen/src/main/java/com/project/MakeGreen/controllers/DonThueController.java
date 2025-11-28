@@ -4,7 +4,6 @@ import com.project.MakeGreen.dtos.DonThueDto;
 import com.project.MakeGreen.dtos.responses.ErrorResponse;
 import com.project.MakeGreen.models.DonThue;
 import com.project.MakeGreen.services.DonThueService;
-import com.project.MakeGreen.services.EmailService; // Import EmailService
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -25,8 +24,7 @@ public class DonThueController {
     @Autowired
     private DonThueService donThueService;
 
-    @Autowired
-    private EmailService emailService; // Inject EmailService
+    // Đã xóa EmailService ở đây để tránh dư thừa
 
     @PostMapping
     public ResponseEntity<?> taoDonThue(
@@ -42,19 +40,11 @@ public class DonThueController {
         try {
             log.info("Tao don thue voi nguoiDungId: {}", nguoiDungId);
             
-            // 1. Gọi Service tạo đơn
+            // 1. Gọi Service tạo đơn (Service sẽ tự lo việc gửi mail)
             DonThue donThue = donThueService.taoDonThue(nguoiDungId, xeId, batDauLuc, ketThucLuc, trangThai, soTienCoc, chiPhiUocTinh, tramThueId, tramTraId);
             log.info("Successfully tao don thue: {}", donThue.getId());
 
-            // 2. GỬI EMAIL NGAY LẬP TỨC TẠI ĐÂY
-            // Đây là chốt chặn quan trọng nhất: Đơn tạo xong -> Gửi mail ngay.
-            try {
-                log.info("Dang kich hoat gui email xac nhan don hang (Async)...");
-                emailService.sendOrderCreationEmail(donThue);
-            } catch (Exception e) {
-                log.error("Loi gui email controller: {}", e.getMessage());
-                // Không throw exception ở đây để đơn vẫn được tạo thành công dù mail lỗi
-            }
+            // ĐÃ XÓA CODE GỬI EMAIL TẠI ĐÂY -> CHỈ GỬI 1 LẦN DUY NHẤT TỪ SERVICE
 
             return ResponseEntity.ok(DonThueDto.from(donThue));
         } catch (RuntimeException e) {
