@@ -152,6 +152,7 @@ export default function TripTrackingPage() {
           ket_thuc_luc: new Date().toISOString(),
           path: JSON.stringify(pathData),
           tong_chi_phi: tongChiPhi,
+          so_km_thuc_te: tripData.distance
         })
         .eq('id', chuyenDiId);
 

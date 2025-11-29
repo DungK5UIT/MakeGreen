@@ -517,7 +517,7 @@ const BookingPage = () => {
             .from('nguoi_dung').select('id').eq('sdt', customerInfo.phone).single();
           if (phoneCheck) throw new Error('Số điện thoại đã tồn tại. Vui lòng đăng nhập để tiếp tục.');
 
-          const { error: userError } = await supabase.from('nguoi_dung').insert({
+          const { error: userError } = await supabase.from('nguoi_dung').upsert({
             id: nguoi_dung_id,
             sdt: customerInfo.phone,
             ho_ten: customerInfo.fullName,

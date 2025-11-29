@@ -83,6 +83,7 @@ export default function Header() {
           <nav className="hidden md:flex items-center space-x-8">
             <NavLink href="/vehicles" isAuthed={isAuthed}>Xe điện</NavLink>
             <NavLink href="/trips" isTrips={true} isAuthed={isAuthed}>Chuyến đi</NavLink> {/* Thêm isTrips và isAuthed */}
+            <NavLink href="/charging" isAuthed={isAuthed}>Nạp pin</NavLink>          
             <NavLink href="/news" isAuthed={isAuthed}>Tin tức</NavLink>
             <NavLink href="/support" isAuthed={isAuthed}>Hỗ trợ</NavLink>
           </nav>
